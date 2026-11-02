@@ -27,3 +27,11 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Signing keys / credentials (절대 커밋 금지, 로컬에서만 관리)
+*.jks
+*.keystore
+*.p12
+*.pem
+key.properties
+keystore.properties
