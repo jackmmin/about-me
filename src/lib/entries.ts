@@ -130,3 +130,32 @@ export async function deleteEntry(entry: Entry) {
   if (error) throw error
   await removeImages(entry.images.map((img) => img.storage_path))
 }
+
+// PostgREST or() 필터 문법을 깨뜨리는 문자를 걸러낸다.
+export function sanitizeQuery(q: string) {
+  return q.replace(/[,()%*\\:"]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+// 제목·본문·태그에서 검색 (최근 기록 순)
+export async function searchEntries(q: string, limit = 50) {
+  const term = sanitizeQuery(q)
+  if (!term) return []
+  const pattern = `%${term}%`
+
+  const { data: tagRows, error: tagError } = await supabase.from('tags').select('entry_tags(entry_id)').ilike('name', pattern)
+  if (tagError) throw tagError
+  const taggedIds = [...new Set(tagRows.flatMap((t) => (t.entry_tags as { entry_id: string }[]).map((et) => et.entry_id)))]
+
+  const filters = [`title.ilike.${pattern}`, `content.ilike.${pattern}`]
+  if (taggedIds.length > 0) filters.push(`id.in.(${taggedIds.join(',')})`)
+
+  const { data, error } = await supabase
+    .from('entries')
+    .select(SELECT)
+    .or(filters.join(','))
+    .order('record_date', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return (data as unknown as EntryRow[]).map(toEntry)
+}

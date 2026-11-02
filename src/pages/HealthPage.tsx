@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { ExerciseList } from '../components/health/ExerciseList.tsx'
 import { ScoreInput } from '../components/health/ScoreInput.tsx'
 import { Section } from '../components/health/Section.tsx'
@@ -22,7 +22,12 @@ import { useLoad } from '../lib/useLoad.ts'
 const WEEKDAY = new Intl.DateTimeFormat('ko-KR', { weekday: 'narrow', timeZone: 'UTC' })
 
 export function HealthPage() {
-  const [date, setDate] = useState(today())
+  // 검색 결과 등에서 /health?date=YYYY-MM-DD로 들어오면 그 날짜를 연다.
+  const [params] = useSearchParams()
+  const [date, setDate] = useState(() => {
+    const d = params.get('date')
+    return d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= today() ? d : today()
+  })
   // 불러온 날짜를 같이 들고 있어서, 날짜를 바꾼 직후 이전 날짜 데이터로 폼이 그려지지 않게 한다.
   const day = useLoad(async () => ({ date, ...(await getHealthDay(date)) }), [date])
   const recent = useLoad(() => listHealthRange(shiftDate(today(), -6), today()), [day.data])

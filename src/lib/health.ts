@@ -126,3 +126,50 @@ export function dateRange(from: string, to: string) {
   for (let d = from; d <= to; d = shiftDate(d, 1)) dates.push(d)
   return dates
 }
+
+export interface HealthMatch {
+  log_date: string
+  field: string
+  text: string
+}
+
+const HEALTH_TEXT_FIELDS: Record<string, string> = {
+  meals: '식단',
+  medications: '복용약',
+  hospital_visit: '병원',
+  memo: '메모',
+}
+
+// 건강 기록의 글 항목(식단·복용약·병원·메모)과 운동 종류·메모에서 검색. 날짜 최신순.
+export async function searchHealth(term: string, limit = 50) {
+  if (!term) return []
+  const pattern = `%${term}%`
+  const fields = Object.keys(HEALTH_TEXT_FIELDS)
+  const [logs, exercises] = await Promise.all([
+    supabase
+      .from('health_logs')
+      .select(`log_date, ${fields.join(', ')}`)
+      .or(fields.map((f) => `${f}.ilike.${pattern}`).join(','))
+      .order('log_date', { ascending: false })
+      .limit(limit),
+    supabase
+      .from('exercise_logs')
+      .select('log_date, kind, memo')
+      .or(`kind.ilike.${pattern},memo.ilike.${pattern}`)
+      .order('log_date', { ascending: false })
+      .limit(limit),
+  ])
+  if (logs.error) throw logs.error
+  if (exercises.error) throw exercises.error
+
+  const lower = term.toLowerCase()
+  const matches: HealthMatch[] = []
+  for (const row of logs.data as unknown as Record<string, string>[]) {
+    const field = fields.find((f) => row[f]?.toLowerCase().includes(lower))
+    if (field) matches.push({ log_date: row.log_date, field: HEALTH_TEXT_FIELDS[field], text: row[field] })
+  }
+  for (const ex of exercises.data) {
+    matches.push({ log_date: ex.log_date as string, field: '운동', text: [ex.kind, ex.memo].filter(Boolean).join(' · ') })
+  }
+  return matches.sort((a, b) => b.log_date.localeCompare(a.log_date)).slice(0, limit)
+}

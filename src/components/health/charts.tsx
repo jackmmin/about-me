@@ -1,4 +1,4 @@
-import { useSyncExternalStore, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import {
   Bar,
   BarChart,
@@ -12,21 +12,15 @@ import {
   YAxis,
   type TooltipContentProps,
 } from 'recharts'
+import { useIsDark } from '../../lib/theme.ts'
 
 // 시각화 팔레트(검증 완료: 2계열 CVD·명도·대비 통과). 다크 모드는 다크 표면용 단계를 따로 쓴다.
 const LIGHT = { series: ['#2a78d6', '#eb6834'], grid: '#e1e0d9', axis: '#898781', baseline: '#c3c2b7', surface: '#ffffff' }
 const DARK = { series: ['#3987e5', '#d95926'], grid: '#2c2c2a', axis: '#898781', baseline: '#383835', surface: '#0a0a0a' }
 
-const darkQuery = window.matchMedia('(prefers-color-scheme: dark)')
+// 선택한 테마(시스템/라이트/다크)를 따른다
 function useChartColors() {
-  const dark = useSyncExternalStore(
-    (cb) => {
-      darkQuery.addEventListener('change', cb)
-      return () => darkQuery.removeEventListener('change', cb)
-    },
-    () => darkQuery.matches,
-  )
-  return dark ? DARK : LIGHT
+  return useIsDark() ? DARK : LIGHT
 }
 
 export interface SeriesDef {

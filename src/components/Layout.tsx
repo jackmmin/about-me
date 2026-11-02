@@ -2,6 +2,15 @@ import { NavLink, Outlet } from 'react-router'
 import { signOut } from '../auth/useAuth.ts'
 import { SECTIONS } from '../sections.ts'
 import { SectionIcon } from './SectionIcon.tsx'
+import { ThemeToggle } from './ThemeToggle.tsx'
+
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" className={className} aria-hidden="true">
+      <path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4" />
+    </svg>
+  )
+}
 
 // PC(md 이상): 왼쪽 사이드바 / 모바일: 하단 탭바
 export function Layout() {
@@ -27,20 +36,42 @@ export function Layout() {
               {s.label}
             </NavLink>
           ))}
+          <NavLink
+            to="/search"
+            className={({ isActive }) =>
+              `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+                isActive
+                  ? 'bg-neutral-100 font-semibold dark:bg-neutral-800'
+                  : 'text-neutral-600 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:bg-neutral-900'
+              }`
+            }
+          >
+            <SearchIcon className="size-5" />
+            검색
+          </NavLink>
         </nav>
-        <button
-          className="mt-auto rounded-lg px-3 py-2 text-left text-sm text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-900"
-          onClick={() => void signOut()}
-        >
-          로그아웃
-        </button>
+        <div className="mt-auto flex flex-col gap-1 px-1">
+          <ThemeToggle showLabel />
+          <button
+            className="rounded-lg px-2 py-1.5 text-left text-sm text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-900"
+            onClick={() => void signOut()}
+          >
+            로그아웃
+          </button>
+        </div>
       </aside>
 
       <header className="flex items-center justify-between px-4 pt-[calc(0.75rem+env(safe-area-inset-top))] md:hidden">
         <p className="font-bold">About Me</p>
-        <button className="text-sm text-neutral-500" onClick={() => void signOut()}>
-          로그아웃
-        </button>
+        <div className="flex items-center gap-1">
+          <NavLink to="/search" className="rounded-lg p-1.5 text-neutral-500" aria-label="검색">
+            <SearchIcon className="size-5" />
+          </NavLink>
+          <ThemeToggle />
+          <button className="ml-1 text-sm text-neutral-500" onClick={() => void signOut()}>
+            로그아웃
+          </button>
+        </div>
       </header>
 
       <main className="mx-auto w-full max-w-3xl px-4 pt-4 pb-[calc(5rem+env(safe-area-inset-bottom))] md:px-8 md:pt-6 md:pb-10">
