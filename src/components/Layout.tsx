@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router'
+import { signOut } from '../auth/useAuth.ts'
 import { SECTIONS } from '../sections.ts'
 import { SectionIcon } from './SectionIcon.tsx'
 
@@ -27,9 +28,22 @@ export function Layout() {
             </NavLink>
           ))}
         </nav>
+        <button
+          className="mt-auto rounded-lg px-3 py-2 text-left text-sm text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-900"
+          onClick={() => void signOut()}
+        >
+          로그아웃
+        </button>
       </aside>
 
-      <main className="mx-auto w-full max-w-3xl px-4 pt-6 pb-[calc(5rem+env(safe-area-inset-bottom))] md:px-8 md:pb-10">
+      <header className="flex items-center justify-between px-4 pt-[calc(0.75rem+env(safe-area-inset-top))] md:hidden">
+        <p className="font-bold">About Me</p>
+        <button className="text-sm text-neutral-500" onClick={() => void signOut()}>
+          로그아웃
+        </button>
+      </header>
+
+      <main className="mx-auto w-full max-w-3xl px-4 pt-4 pb-[calc(5rem+env(safe-area-inset-bottom))] md:px-8 md:pt-6 md:pb-10">
         <Outlet />
       </main>
 
