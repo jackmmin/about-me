@@ -35,3 +35,7 @@ dist-ssr
 *.pem
 key.properties
 keystore.properties
+
+# Android 빌드 결과물 (로컬에서만 관리, GitHub 업로드 금지)
+*.apk
+*.aab
