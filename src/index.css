@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+:root {
+  font-family:
+    Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui,
+    sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  @apply bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100;
+}
