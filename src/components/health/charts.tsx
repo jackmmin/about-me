@@ -3,8 +3,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Line,
-  LineChart,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -70,38 +68,6 @@ const axisProps = (color: string) => ({
   tickLine: false,
   axisLine: false,
 })
-
-export function TrendLineChart({ data, series, domain }: { data: ChartRow[]; series: SeriesDef[]; domain?: [number, number] }) {
-  const colors = useChartColors()
-  const dots = data.length <= 31
-  return (
-    <ResponsiveContainer width="100%" height={200}>
-      <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-        <CartesianGrid vertical={false} stroke={colors.grid} />
-        <XAxis dataKey="date" tickFormatter={tickDate} minTickGap={24} {...axisProps(colors.axis)} />
-        <YAxis width={40} domain={domain ?? ['auto', 'auto']} allowDecimals={false} {...axisProps(colors.axis)} />
-        <Tooltip
-          content={(props) => <ChartTooltip {...props} series={series} />}
-          cursor={{ stroke: colors.baseline, strokeWidth: 1 }}
-        />
-        {series.map((s, i) => (
-          <Line
-            key={s.key}
-            dataKey={s.key}
-            name={s.name}
-            type="monotone"
-            stroke={colors.series[i]}
-            strokeWidth={2}
-            connectNulls
-            dot={dots ? { r: 4, strokeWidth: 2, stroke: colors.surface, fill: colors.series[i] } : false}
-            activeDot={{ r: 5, strokeWidth: 2, stroke: colors.surface }}
-            isAnimationActive={false}
-          />
-        ))}
-      </LineChart>
-    </ResponsiveContainer>
-  )
-}
 
 export function DailyBarChart({ data, series, average }: { data: ChartRow[]; series: SeriesDef; average?: number | null }) {
   const colors = useChartColors()

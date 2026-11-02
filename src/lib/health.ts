@@ -1,18 +1,5 @@
 import { supabase } from './supabase.ts'
 
-// 화면에서 쓰는 항목만 다룬다. (걸음 수·컨디션·복용약·병원·메모 칸은 DB에 남아 있지만 더 이상 쓰지 않는다.)
-// upsert도 이 항목만 보내므로 기존에 남아 있는 값은 그대로 보존된다.
-export interface HealthLog {
-  log_date: string
-  bed_at: string | null
-  wake_at: string | null
-  sleep_minutes: number | null
-  sleep_quality: number | null
-  weight_kg: number | null
-  body_fat_pct: number | null
-  muscle_kg: number | null
-}
-
 export interface ExerciseLog {
   id: string
   log_date: string
@@ -53,52 +40,29 @@ export interface MealLog {
   note: string
 }
 
-const LOG_COLUMNS = 'log_date, bed_at, wake_at, sleep_minutes, sleep_quality, weight_kg, body_fat_pct, muscle_kg'
 const MEAL_COLUMNS = 'log_date, meal, foods, symptoms, severity, note'
 
-// PostgREST는 numeric을 문자열로 줄 수 있어 숫자로 맞춘다.
-function normalize(row: Record<string, unknown>): HealthLog {
-  const num = (v: unknown) => (v === null || v === undefined ? null : Number(v))
-  return {
-    ...(row as unknown as HealthLog),
-    weight_kg: num(row.weight_kg),
-    body_fat_pct: num(row.body_fat_pct),
-    muscle_kg: num(row.muscle_kg),
-  }
-}
-
 export async function getHealthDay(date: string) {
-  const [log, exercises, meals] = await Promise.all([
-    supabase.from('health_logs').select(LOG_COLUMNS).eq('log_date', date).maybeSingle(),
+  const [exercises, meals] = await Promise.all([
     supabase.from('exercise_logs').select('*').eq('log_date', date).order('created_at'),
     supabase.from('meal_logs').select(MEAL_COLUMNS).eq('log_date', date),
   ])
-  if (log.error) throw log.error
   if (exercises.error) throw exercises.error
   if (meals.error) throw meals.error
   return {
-    log: log.data ? normalize(log.data) : null,
     exercises: exercises.data as ExerciseLog[],
     meals: meals.data as MealLog[],
   }
 }
 
 export async function listHealthRange(from: string, to: string) {
-  const [logs, exercises, meals] = await Promise.all([
-    supabase.from('health_logs').select(LOG_COLUMNS).gte('log_date', from).lte('log_date', to).order('log_date'),
+  const [exercises, meals] = await Promise.all([
     supabase.from('exercise_logs').select('*').gte('log_date', from).lte('log_date', to).order('log_date'),
     supabase.from('meal_logs').select(MEAL_COLUMNS).gte('log_date', from).lte('log_date', to).order('log_date'),
   ])
-  if (logs.error) throw logs.error
   if (exercises.error) throw exercises.error
   if (meals.error) throw meals.error
-  return { logs: logs.data.map(normalize), exercises: exercises.data as ExerciseLog[], meals: meals.data as MealLog[] }
-}
-
-// 하루 한 행: 같은 날짜로 저장하면 덮어쓴다.
-export async function saveHealthLog(log: HealthLog) {
-  const { error } = await supabase.from('health_logs').upsert(log, { onConflict: 'user_id,log_date' })
-  if (error) throw error
+  return { exercises: exercises.data as ExerciseLog[], meals: meals.data as MealLog[] }
 }
 
 // 하루 끼니당 한 행. 음식·증상·메모가 모두 비면 행을 지운다.
@@ -183,32 +147,7 @@ export function analyzeFoods(meals: MealLog[]) {
   return { totalMeals: withFood.length, baselineRate, foods }
 }
 
-// ---- 수면 시각 계산 ----
-
-// 취침 시각이 정오 이후면 전날 밤으로 본다 (예: 23:30 → 전날, 01:00 → 당일).
-export function sleepTimestamps(date: string, bed: string, wake: string) {
-  if (!bed || !wake) return null
-  const bedDate = bed >= '12:00' ? shiftDate(date, -1) : date
-  const bedAt = new Date(`${bedDate}T${bed}`)
-  const wakeAt = new Date(`${date}T${wake}`)
-  const minutes = Math.round((wakeAt.getTime() - bedAt.getTime()) / 60000)
-  if (minutes <= 0 || minutes > 24 * 60) return null
-  return { bed_at: bedAt.toISOString(), wake_at: wakeAt.toISOString(), sleep_minutes: minutes }
-}
-
-// timestamptz → 현지 'HH:MM'
-export function localTime(iso: string | null) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
-
-export function formatMinutes(minutes: number | null) {
-  if (minutes === null) return '-'
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  return m ? `${h}시간 ${m}분` : `${h}시간`
-}
+// ---- 날짜 ----
 
 // 'YYYY-MM-DD'에 일 수를 더한다 (UTC 기준이라 시간대 영향 없음).
 export function shiftDate(date: string, days: number) {
