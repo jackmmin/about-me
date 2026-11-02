@@ -58,7 +58,7 @@ export function SearchPage() {
         className={fieldClass}
         type="search"
         autoFocus
-        placeholder="제목, 본문, 태그, 건강 메모"
+        placeholder="제목, 본문, 태그, 음식, 운동"
         value={input}
         onChange={(e) => setInput(e.target.value)}
       />

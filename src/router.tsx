@@ -4,6 +4,7 @@ import { Layout } from './components/Layout.tsx'
 import { EntryDetailPage } from './pages/EntryDetailPage.tsx'
 import { EntryEditPage } from './pages/EntryEditPage.tsx'
 import { EntryListPage } from './pages/EntryListPage.tsx'
+import { FoodAnalysisPage } from './pages/FoodAnalysisPage.tsx'
 import { HealthPage } from './pages/HealthPage.tsx'
 import { HealthStatsPage } from './pages/HealthStatsPage.tsx'
 import { PhotoGalleryPage } from './pages/PhotoGalleryPage.tsx'
@@ -23,6 +24,7 @@ export const router = createHashRouter([
           { path: '/photos', element: <PhotoGalleryPage /> },
           { path: '/health', element: <HealthPage /> },
           { path: '/health/stats', element: <HealthStatsPage /> },
+          { path: '/health/foods', element: <FoodAnalysisPage /> },
           { path: '/search', element: <SearchPage /> },
           { path: '/entries/new', element: <EntryEditPage /> },
           { path: '/entries/:id', element: <EntryDetailPage /> },

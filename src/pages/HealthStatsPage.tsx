@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { ChartCard, DailyBarChart, Legend, TrendLineChart, type ChartRow, type SeriesDef } from '../components/health/charts.tsx'
+import { ChartCard, DailyBarChart, TrendLineChart, type ChartRow, type SeriesDef } from '../components/health/charts.tsx'
 import { PageHeader, StatusMessage } from '../components/ui.tsx'
 import { today } from '../lib/format.ts'
-import { dateRange, formatMinutes, listHealthRange, shiftDate, type ExerciseLog, type HealthLog } from '../lib/health.ts'
+import { dateRange, formatMinutes, listHealthRange, shiftDate, type ExerciseLog, type HealthLog, type MealLog } from '../lib/health.ts'
 import { useLoad } from '../lib/useLoad.ts'
 
 const RANGES = [
@@ -20,17 +20,16 @@ const BODY: Record<BodyMetric, SeriesDef> = {
   muscle_kg: { key: 'muscle_kg', name: '골격근량', format: (v) => `${v.toFixed(1)}kg` },
 }
 const SLEEP: SeriesDef = { key: 'sleep_hours', name: '수면', format: (v) => formatMinutes(Math.round(v * 60)) }
-const SCORES: SeriesDef[] = [
-  { key: 'condition_score', name: '컨디션', format: (v) => `${v}점` },
-  { key: 'sleep_quality', name: '수면 질', format: (v) => `${v}점` },
-]
+const SLEEP_QUALITY: SeriesDef = { key: 'sleep_quality', name: '수면 질', format: (v) => `${v}점` }
 const EXERCISE: SeriesDef = { key: 'exercise_minutes', name: '운동', format: (v) => `${Math.round(v)}분` }
-const STEPS: SeriesDef = { key: 'steps', name: '걸음 수', format: (v) => `${Math.round(v).toLocaleString()}보` }
+const SYMPTOM_MEALS: SeriesDef = { key: 'symptom_meals', name: '증상 있던 끼니', format: (v) => `${Math.round(v)}끼` }
 
-function buildRows(dates: string[], logs: HealthLog[], exercises: ExerciseLog[]): ChartRow[] {
+function buildRows(dates: string[], logs: HealthLog[], exercises: ExerciseLog[], meals: MealLog[]): ChartRow[] {
   const byDate = new Map(logs.map((l) => [l.log_date, l]))
   const minutes = new Map<string, number>()
   for (const e of exercises) minutes.set(e.log_date, (minutes.get(e.log_date) ?? 0) + e.minutes)
+  const symptomMeals = new Map<string, number>()
+  for (const m of meals) if (m.symptoms.length > 0) symptomMeals.set(m.log_date, (symptomMeals.get(m.log_date) ?? 0) + 1)
   return dates.map((date) => {
     const l = byDate.get(date)
     return {
@@ -40,9 +39,8 @@ function buildRows(dates: string[], logs: HealthLog[], exercises: ExerciseLog[])
       muscle_kg: l?.muscle_kg ?? null,
       sleep_hours: l?.sleep_minutes != null ? l.sleep_minutes / 60 : null,
       sleep_quality: l?.sleep_quality ?? null,
-      condition_score: l?.condition_score ?? null,
-      steps: l?.steps ?? null,
       exercise_minutes: minutes.get(date) ?? null,
+      symptom_meals: symptomMeals.get(date) ?? null,
     }
   })
 }
@@ -67,15 +65,15 @@ export function HealthStatsPage() {
   // 직전 기간과 비교하기 위해 두 기간을 한 번에 불러온다.
   const { data, error, loading } = useLoad(() => listHealthRange(prevStart, end), [days, end])
 
-  const rows = data ? buildRows(dateRange(start, end), data.logs, data.exercises) : []
-  const prevRows = data ? buildRows(dateRange(prevStart, shiftDate(start, -1)), data.logs, data.exercises) : []
+  const rows = data ? buildRows(dateRange(start, end), data.logs, data.exercises, data.meals) : []
+  const prevRows = data ? buildRows(dateRange(prevStart, shiftDate(start, -1)), data.logs, data.exercises, data.meals) : []
   const hasData = rows.some((r) => Object.entries(r).some(([k, v]) => k !== 'date' && v !== null))
 
   const tiles = [
     { label: `평균 ${BODY[body].name}`, cur: average(rows, body), prev: average(prevRows, body), format: BODY[body].format },
     { label: '평균 수면', cur: average(rows, 'sleep_hours'), prev: average(prevRows, 'sleep_hours'), format: SLEEP.format },
-    { label: '평균 컨디션', cur: average(rows, 'condition_score'), prev: average(prevRows, 'condition_score'), format: (v: number) => `${v.toFixed(1)}점` },
     { label: '총 운동', cur: total(rows, 'exercise_minutes'), prev: total(prevRows, 'exercise_minutes'), format: EXERCISE.format },
+    { label: '증상 있던 끼니', cur: total(rows, 'symptom_meals'), prev: total(prevRows, 'symptom_meals'), format: SYMPTOM_MEALS.format },
   ]
 
   return (
@@ -140,16 +138,16 @@ export function HealthStatsPage() {
             <DailyBarChart data={rows} series={SLEEP} average={average(rows, 'sleep_hours')} />
           </ChartCard>
 
-          <ChartCard title="컨디션 · 수면 질" legend={<Legend series={SCORES} />}>
-            <TrendLineChart data={rows} series={SCORES} domain={[1, 5]} />
+          <ChartCard title="수면 질">
+            <TrendLineChart data={rows} series={[SLEEP_QUALITY]} domain={[1, 5]} />
           </ChartCard>
 
           <ChartCard title="운동 시간">
             <DailyBarChart data={rows} series={EXERCISE} />
           </ChartCard>
 
-          <ChartCard title="걸음 수">
-            <DailyBarChart data={rows} series={STEPS} average={average(rows, 'steps')} />
+          <ChartCard title="식후 증상">
+            <DailyBarChart data={rows} series={SYMPTOM_MEALS} />
           </ChartCard>
 
           <button className="text-sm text-neutral-500 underline-offset-4 hover:underline" onClick={() => setShowTable(!showTable)}>
@@ -189,9 +187,9 @@ function DataTable({ rows }: { rows: ChartRow[] }) {
             <th className="p-2 font-normal">체중</th>
             <th className="p-2 font-normal">체지방</th>
             <th className="p-2 font-normal">수면</th>
-            <th className="p-2 font-normal">컨디션</th>
+            <th className="p-2 font-normal">수면 질</th>
             <th className="p-2 font-normal">운동</th>
-            <th className="p-2 font-normal">걸음</th>
+            <th className="p-2 font-normal">증상</th>
           </tr>
         </thead>
         <tbody>
@@ -201,9 +199,9 @@ function DataTable({ rows }: { rows: ChartRow[] }) {
               <td className="p-2">{cell(r.weight_kg, BODY.weight_kg.format)}</td>
               <td className="p-2">{cell(r.body_fat_pct, BODY.body_fat_pct.format)}</td>
               <td className="p-2">{cell(r.sleep_hours, SLEEP.format)}</td>
-              <td className="p-2">{cell(r.condition_score, SCORES[0].format)}</td>
+              <td className="p-2">{cell(r.sleep_quality, SLEEP_QUALITY.format)}</td>
               <td className="p-2">{cell(r.exercise_minutes, EXERCISE.format)}</td>
-              <td className="p-2">{cell(r.steps, STEPS.format)}</td>
+              <td className="p-2">{cell(r.symptom_meals, SYMPTOM_MEALS.format)}</td>
             </tr>
           ))}
         </tbody>

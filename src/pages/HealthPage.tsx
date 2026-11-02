@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { ExerciseList } from '../components/health/ExerciseList.tsx'
+import { MealCard } from '../components/health/MealCard.tsx'
 import { ScoreInput } from '../components/health/ScoreInput.tsx'
 import { Section } from '../components/health/Section.tsx'
 import { fieldClass, primaryClass, secondaryClass } from '../components/styles.ts'
@@ -10,7 +11,9 @@ import {
   formatMinutes,
   getHealthDay,
   listExerciseKinds,
+  listFoodNames,
   listHealthRange,
+  MEALS,
   localTime,
   saveHealthLog,
   shiftDate,
@@ -32,8 +35,11 @@ export function HealthPage() {
   const day = useLoad(async () => ({ date, ...(await getHealthDay(date)) }), [date])
   const recent = useLoad(() => listHealthRange(shiftDate(today(), -6), today()), [day.data])
   const { data: kinds } = useLoad(listExerciseKinds, [day.data])
+  const { data: foods } = useLoad(listFoodNames, [day.data])
 
-  const recorded = new Set([...(recent.data?.logs ?? []), ...(recent.data?.exercises ?? [])].map((r) => r.log_date))
+  const recorded = new Set(
+    [...(recent.data?.logs ?? []), ...(recent.data?.exercises ?? []), ...(recent.data?.meals ?? [])].map((r) => r.log_date),
+  )
   const week = Array.from({ length: 7 }, (_, i) => shiftDate(today(), i - 6))
 
   return (
@@ -42,9 +48,14 @@ export function HealthPage() {
         title="건강"
         description="하루 한 번, 오늘의 몸 상태"
         actions={
-          <Link to="/health/stats" className={secondaryClass}>
-            그래프
-          </Link>
+          <>
+            <Link to="/health/foods" className={secondaryClass}>
+              음식 분석
+            </Link>
+            <Link to="/health/stats" className={secondaryClass}>
+              그래프
+            </Link>
+          </>
         }
       />
 
@@ -86,6 +97,19 @@ export function HealthPage() {
       ) : (
         <div className="flex flex-col gap-3">
           <HealthForm key={date} date={date} initial={day.data.log} onSaved={day.reload} />
+          <Section title="식단" summary={mealSummary(day.data.meals)} defaultOpen>
+            {MEALS.map((m) => (
+              <MealCard
+                key={`${date}-${m.key}`}
+                date={date}
+                meal={m.key}
+                label={m.label}
+                initial={day.data?.meals.find((x) => x.meal === m.key)}
+                foodSuggestions={foods ?? []}
+                onSaved={day.reload}
+              />
+            ))}
+          </Section>
           <Section title="운동" summary={exerciseSummary(day.data.exercises.map((e) => e.minutes))} defaultOpen>
             <ExerciseList date={date} exercises={day.data.exercises} kinds={kinds ?? []} onChange={day.reload} />
           </Section>
@@ -93,6 +117,12 @@ export function HealthPage() {
       )}
     </section>
   )
+}
+
+function mealSummary(meals: { foods: string[]; symptoms: string[] }[]) {
+  if (meals.length === 0) return ''
+  const withSymptom = meals.filter((m) => m.symptoms.length > 0).length
+  return `${meals.length}끼${withSymptom ? ` · 증상 ${withSymptom}` : ''}`
 }
 
 function exerciseSummary(minutes: number[]) {
@@ -108,12 +138,6 @@ interface Draft {
   weight_kg: string
   body_fat_pct: string
   muscle_kg: string
-  steps: string
-  condition_score: number | null
-  meals: string
-  medications: string
-  hospital_visit: string
-  memo: string
 }
 
 function toDraft(log: HealthLog | null): Draft {
@@ -125,12 +149,6 @@ function toDraft(log: HealthLog | null): Draft {
     weight_kg: s(log?.weight_kg),
     body_fat_pct: s(log?.body_fat_pct),
     muscle_kg: s(log?.muscle_kg),
-    steps: s(log?.steps),
-    condition_score: log?.condition_score ?? null,
-    meals: log?.meals ?? '',
-    medications: log?.medications ?? '',
-    hospital_visit: log?.hospital_visit ?? '',
-    memo: log?.memo ?? '',
   }
 }
 
@@ -148,7 +166,7 @@ function HealthForm({ date, initial, onSaved }: { date: string; initial: HealthL
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if ((draft.bed || draft.wake) && !sleep) return setStatus({ error: true, message: '취침·기상 시각을 확인하세요.' })
-    const values = [draft.weight_kg, draft.body_fat_pct, draft.muscle_kg, draft.steps].map(num)
+    const values = [draft.weight_kg, draft.body_fat_pct, draft.muscle_kg].map(num)
     if (values.some((v) => v !== null && (Number.isNaN(v) || v < 0))) return setStatus({ error: true, message: '숫자 항목을 확인하세요.' })
     setStatus({ pending: true })
     try {
@@ -161,12 +179,6 @@ function HealthForm({ date, initial, onSaved }: { date: string; initial: HealthL
         weight_kg: values[0],
         body_fat_pct: values[1],
         muscle_kg: values[2],
-        steps: values[3] === null ? null : Math.round(values[3]),
-        condition_score: draft.condition_score,
-        meals: draft.meals.trim(),
-        medications: draft.medications.trim(),
-        hospital_visit: draft.hospital_visit.trim(),
-        memo: draft.memo.trim(),
       })
       setStatus({ message: '저장했습니다.' })
       onSaved()
@@ -201,20 +213,8 @@ function HealthForm({ date, initial, onSaved }: { date: string; initial: HealthL
         </div>
       </Section>
 
-      <Section title="활동" summary={draft.steps && `${Number(draft.steps).toLocaleString()}보`}>
-        <NumberField label="걸음 수" value={draft.steps} onChange={(v) => set('steps', v)} integer />
-      </Section>
-
-      <Section title="컨디션·식단·병원" summary={draft.condition_score ? `컨디션 ${draft.condition_score}` : ''} defaultOpen>
-        <ScoreInput label="컨디션" value={draft.condition_score} onChange={(v) => set('condition_score', v)} low="나쁨" high="좋음" />
-        <TextField label="식단" value={draft.meals} onChange={(v) => set('meals', v)} placeholder="아침·점심·저녁" />
-        <TextField label="복용약" value={draft.medications} onChange={(v) => set('medications', v)} />
-        <TextField label="병원 방문" value={draft.hospital_visit} onChange={(v) => set('hospital_visit', v)} placeholder="병원, 진료 내용" />
-        <TextField label="메모" value={draft.memo} onChange={(v) => set('memo', v)} />
-      </Section>
-
       <button className={primaryClass} disabled={status.pending}>
-        {status.pending ? '저장 중…' : initial ? '수정 저장' : '저장'}
+        {status.pending ? '저장 중…' : '수면·체성분 저장'}
       </button>
       {status.message && (
         <p className={`text-center text-sm ${status.error ? 'text-red-600 dark:text-red-400' : 'text-neutral-500'}`}>{status.message}</p>
@@ -223,30 +223,15 @@ function HealthForm({ date, initial, onSaved }: { date: string; initial: HealthL
   )
 }
 
-function NumberField({ label, value, onChange, integer }: { label: string; value: string; onChange: (v: string) => void; integer?: boolean }) {
+function NumberField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <label className="text-sm text-neutral-600 dark:text-neutral-400">
       {label}
       <input
         className={`${fieldClass} mt-1`}
-        inputMode={integer ? 'numeric' : 'decimal'}
+        inputMode="decimal"
         value={value}
-        onChange={(e) => onChange(e.target.value.replace(integer ? /\D/g : /[^\d.]/g, ''))}
-      />
-    </label>
-  )
-}
-
-function TextField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
-  return (
-    <label className="text-sm text-neutral-600 dark:text-neutral-400">
-      {label}
-      <textarea
-        rows={2}
-        className={`${fieldClass} mt-1 resize-y`}
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value.replace(/[^\d.]/g, ''))}
       />
     </label>
   )

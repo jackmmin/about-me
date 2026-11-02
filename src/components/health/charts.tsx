@@ -65,21 +65,6 @@ export function ChartCard({ title, legend, children }: { title: string; legend?:
   )
 }
 
-// 2계열 이상일 때 범례 (색만으로 구분하지 않도록 이름을 같이 표시)
-export function Legend({ series }: { series: SeriesDef[] }) {
-  const colors = useChartColors()
-  return (
-    <div className="flex gap-3 text-xs text-neutral-600 dark:text-neutral-400">
-      {series.map((s, i) => (
-        <span key={s.key} className="flex items-center gap-1.5">
-          <span className="h-0.5 w-3 rounded" style={{ background: colors.series[i] }} />
-          {s.name}
-        </span>
-      ))}
-    </div>
-  )
-}
-
 const axisProps = (color: string) => ({
   tick: { fill: color, fontSize: 11 },
   tickLine: false,
