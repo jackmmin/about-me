@@ -1,0 +1,213 @@
+import { useState } from 'react'
+import { Link } from 'react-router'
+import { ChartCard, DailyBarChart, Legend, TrendLineChart, type ChartRow, type SeriesDef } from '../components/health/charts.tsx'
+import { PageHeader, StatusMessage } from '../components/ui.tsx'
+import { today } from '../lib/format.ts'
+import { dateRange, formatMinutes, listHealthRange, shiftDate, type ExerciseLog, type HealthLog } from '../lib/health.ts'
+import { useLoad } from '../lib/useLoad.ts'
+
+const RANGES = [
+  { days: 7, label: '1주' },
+  { days: 30, label: '1개월' },
+  { days: 90, label: '3개월' },
+  { days: 365, label: '1년' },
+]
+
+type BodyMetric = 'weight_kg' | 'body_fat_pct' | 'muscle_kg'
+const BODY: Record<BodyMetric, SeriesDef> = {
+  weight_kg: { key: 'weight_kg', name: '체중', format: (v) => `${v.toFixed(1)}kg` },
+  body_fat_pct: { key: 'body_fat_pct', name: '체지방률', format: (v) => `${v.toFixed(1)}%` },
+  muscle_kg: { key: 'muscle_kg', name: '골격근량', format: (v) => `${v.toFixed(1)}kg` },
+}
+const SLEEP: SeriesDef = { key: 'sleep_hours', name: '수면', format: (v) => formatMinutes(Math.round(v * 60)) }
+const SCORES: SeriesDef[] = [
+  { key: 'condition_score', name: '컨디션', format: (v) => `${v}점` },
+  { key: 'sleep_quality', name: '수면 질', format: (v) => `${v}점` },
+]
+const EXERCISE: SeriesDef = { key: 'exercise_minutes', name: '운동', format: (v) => `${Math.round(v)}분` }
+const STEPS: SeriesDef = { key: 'steps', name: '걸음 수', format: (v) => `${Math.round(v).toLocaleString()}보` }
+
+function buildRows(dates: string[], logs: HealthLog[], exercises: ExerciseLog[]): ChartRow[] {
+  const byDate = new Map(logs.map((l) => [l.log_date, l]))
+  const minutes = new Map<string, number>()
+  for (const e of exercises) minutes.set(e.log_date, (minutes.get(e.log_date) ?? 0) + e.minutes)
+  return dates.map((date) => {
+    const l = byDate.get(date)
+    return {
+      date,
+      weight_kg: l?.weight_kg ?? null,
+      body_fat_pct: l?.body_fat_pct ?? null,
+      muscle_kg: l?.muscle_kg ?? null,
+      sleep_hours: l?.sleep_minutes != null ? l.sleep_minutes / 60 : null,
+      sleep_quality: l?.sleep_quality ?? null,
+      condition_score: l?.condition_score ?? null,
+      steps: l?.steps ?? null,
+      exercise_minutes: minutes.get(date) ?? null,
+    }
+  })
+}
+
+function average(rows: ChartRow[], key: string) {
+  const values = rows.map((r) => r[key]).filter((v): v is number => typeof v === 'number')
+  return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null
+}
+
+function total(rows: ChartRow[], key: string) {
+  return rows.reduce((sum, r) => sum + (typeof r[key] === 'number' ? (r[key] as number) : 0), 0)
+}
+
+export function HealthStatsPage() {
+  const [days, setDays] = useState(30)
+  const [body, setBody] = useState<BodyMetric>('weight_kg')
+  const [showTable, setShowTable] = useState(false)
+
+  const end = today()
+  const start = shiftDate(end, -(days - 1))
+  const prevStart = shiftDate(start, -days)
+  // 직전 기간과 비교하기 위해 두 기간을 한 번에 불러온다.
+  const { data, error, loading } = useLoad(() => listHealthRange(prevStart, end), [days, end])
+
+  const rows = data ? buildRows(dateRange(start, end), data.logs, data.exercises) : []
+  const prevRows = data ? buildRows(dateRange(prevStart, shiftDate(start, -1)), data.logs, data.exercises) : []
+  const hasData = rows.some((r) => Object.entries(r).some(([k, v]) => k !== 'date' && v !== null))
+
+  const tiles = [
+    { label: `평균 ${BODY[body].name}`, cur: average(rows, body), prev: average(prevRows, body), format: BODY[body].format },
+    { label: '평균 수면', cur: average(rows, 'sleep_hours'), prev: average(prevRows, 'sleep_hours'), format: SLEEP.format },
+    { label: '평균 컨디션', cur: average(rows, 'condition_score'), prev: average(prevRows, 'condition_score'), format: (v: number) => `${v.toFixed(1)}점` },
+    { label: '총 운동', cur: total(rows, 'exercise_minutes'), prev: total(prevRows, 'exercise_minutes'), format: EXERCISE.format },
+  ]
+
+  return (
+    <section>
+      <PageHeader
+        title="건강 그래프"
+        actions={
+          <Link to="/health" className="text-sm text-neutral-500">
+            ← 기록
+          </Link>
+        }
+      />
+
+      {/* 필터는 차트 위 한 줄 */}
+      <div className="mb-4 flex gap-1.5" role="radiogroup" aria-label="기간">
+        {RANGES.map((r) => (
+          <button
+            key={r.days}
+            role="radio"
+            aria-checked={days === r.days}
+            className={`rounded-full px-3 py-1 text-sm ${
+              days === r.days ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'bg-neutral-100 dark:bg-neutral-800'
+            }`}
+            onClick={() => setDays(r.days)}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
+
+      {!hasData ? (
+        <StatusMessage loading={loading} error={error} empty="이 기간에 건강 기록이 없습니다." />
+      ) : (
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            {tiles.map((t) => (
+              <StatTile key={t.label} {...t} />
+            ))}
+          </div>
+
+          <ChartCard
+            title={BODY[body].name}
+            legend={
+              <select
+                className="rounded-md border border-neutral-300 bg-transparent px-2 py-1 text-xs dark:border-neutral-700"
+                value={body}
+                onChange={(e) => setBody(e.target.value as BodyMetric)}
+                aria-label="체성분 항목"
+              >
+                {Object.values(BODY).map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            }
+          >
+            <TrendLineChart data={rows} series={[BODY[body]]} />
+          </ChartCard>
+
+          <ChartCard title="수면 시간">
+            <DailyBarChart data={rows} series={SLEEP} average={average(rows, 'sleep_hours')} />
+          </ChartCard>
+
+          <ChartCard title="컨디션 · 수면 질" legend={<Legend series={SCORES} />}>
+            <TrendLineChart data={rows} series={SCORES} domain={[1, 5]} />
+          </ChartCard>
+
+          <ChartCard title="운동 시간">
+            <DailyBarChart data={rows} series={EXERCISE} />
+          </ChartCard>
+
+          <ChartCard title="걸음 수">
+            <DailyBarChart data={rows} series={STEPS} average={average(rows, 'steps')} />
+          </ChartCard>
+
+          <button className="text-sm text-neutral-500 underline-offset-4 hover:underline" onClick={() => setShowTable(!showTable)}>
+            {showTable ? '표 닫기' : '표로 보기'}
+          </button>
+          {showTable && <DataTable rows={rows} />}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function StatTile({ label, cur, prev, format }: { label: string; cur: number | null; prev: number | null; format: (v: number) => string }) {
+  const delta = cur !== null && prev !== null && prev !== 0 ? cur - prev : null
+  return (
+    <div className="rounded-xl border border-neutral-200 p-3 dark:border-neutral-800">
+      <p className="text-xs text-neutral-500">{label}</p>
+      <p className="mt-1 text-lg font-bold">{cur === null ? '-' : format(cur)}</p>
+      {delta !== null && Math.abs(delta) > 1e-9 && (
+        <p className="text-xs text-neutral-500">
+          직전 기간 대비 {delta > 0 ? '▲' : '▼'} {format(Math.abs(delta))}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function DataTable({ rows }: { rows: ChartRow[] }) {
+  const recorded = rows.filter((r) => Object.entries(r).some(([k, v]) => k !== 'date' && v !== null)).reverse()
+  const cell = (v: unknown, f: (n: number) => string) => (typeof v === 'number' ? f(v) : '-')
+  return (
+    <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
+      <table className="w-full text-right text-xs tabular-nums">
+        <thead className="text-neutral-500">
+          <tr className="border-b border-neutral-200 dark:border-neutral-800">
+            <th className="p-2 text-left font-normal">날짜</th>
+            <th className="p-2 font-normal">체중</th>
+            <th className="p-2 font-normal">체지방</th>
+            <th className="p-2 font-normal">수면</th>
+            <th className="p-2 font-normal">컨디션</th>
+            <th className="p-2 font-normal">운동</th>
+            <th className="p-2 font-normal">걸음</th>
+          </tr>
+        </thead>
+        <tbody>
+          {recorded.map((r) => (
+            <tr key={r.date} className="border-b border-neutral-100 last:border-0 dark:border-neutral-900">
+              <td className="p-2 text-left">{r.date.slice(5)}</td>
+              <td className="p-2">{cell(r.weight_kg, BODY.weight_kg.format)}</td>
+              <td className="p-2">{cell(r.body_fat_pct, BODY.body_fat_pct.format)}</td>
+              <td className="p-2">{cell(r.sleep_hours, SLEEP.format)}</td>
+              <td className="p-2">{cell(r.condition_score, SCORES[0].format)}</td>
+              <td className="p-2">{cell(r.exercise_minutes, EXERCISE.format)}</td>
+              <td className="p-2">{cell(r.steps, STEPS.format)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
