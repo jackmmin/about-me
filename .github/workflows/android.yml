@@ -1,0 +1,60 @@
+name: Build Android APK
+
+# Actions 탭에서 "Run workflow"로 실행하거나, android-v* 태그를 push하면 서명된 APK를 Release에 올린다.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['android-v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - run: npm ci
+      # 앱은 GitHub Pages를 원격 로드하지만, webDir(dist)은 cap sync에 필요하다.
+      - run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      - run: npx cap sync android
+
+      - name: Decode keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+
+      - name: Build signed APK
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: 1.0.${{ github.run_number }}
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apk="about-me-1.0.${{ github.run_number }}.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "$apk"
+          tag="${GITHUB_REF_NAME}"
+          [[ "$GITHUB_REF_TYPE" == "tag" ]] || tag="android-build-${{ github.run_number }}"
+          gh release create "$tag" "$apk" \
+            --title "About Me Android 1.0.${{ github.run_number }}" \
+            --notes "폰에서 APK를 받아 설치하세요. (출처를 알 수 없는 앱 설치 허용 필요)" \
+            --latest
