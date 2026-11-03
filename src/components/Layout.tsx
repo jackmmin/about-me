@@ -51,7 +51,7 @@ export function Layout() {
           </NavLink>
         </nav>
         <div className="mt-auto flex flex-col gap-1 px-1">
-          <ThemeToggle showLabel />
+          <ThemeToggle showLabel placement="up" />
           <button
             className="rounded-lg px-2 py-1.5 text-left text-sm text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-900"
             onClick={() => void signOut()}
