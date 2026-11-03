@@ -17,7 +17,7 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
-    // 서명 키는 GitHub Actions Secrets에서 받는다. 키가 없으면(로컬) 서명 없이 빌드된다.
+    // 서명 키는 환경변수로 받는다 (scripts/build-android.sh). 없으면 서명 없이 빌드된다.
     def keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
     signingConfigs {
         release {

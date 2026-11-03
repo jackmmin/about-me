@@ -39,3 +39,6 @@ keystore.properties
 # Android 빌드 결과물 (로컬에서만 관리, GitHub 업로드 금지)
 *.apk
 *.aab
+
+# Android 로컬 빌드 설정 (경로·키 정보, 커밋 금지)
+scripts/android.local.env
