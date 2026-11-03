@@ -2,32 +2,62 @@ import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { ExerciseList } from '../components/health/ExerciseList.tsx'
 import { MealCard } from '../components/health/MealCard.tsx'
-import { Section } from '../components/health/Section.tsx'
 import { fieldClass, secondaryClass } from '../components/styles.ts'
+import { Tabs } from '../components/Tabs.tsx'
 import { PageHeader, StatusMessage } from '../components/ui.tsx'
 import { formatDate, today } from '../lib/format.ts'
-import { getHealthDay, listExerciseKinds, listFoodNames, listHealthRange, MEALS, shiftDate } from '../lib/health.ts'
+import { getHealthDay, listExerciseKinds, listFoodNames, listHealthRange, MEALS, shiftDate, type MealKey } from '../lib/health.ts'
 import { useLoad } from '../lib/useLoad.ts'
 
 const WEEKDAY = new Intl.DateTimeFormat('ko-KR', { weekday: 'narrow', timeZone: 'UTC' })
 
+type Tab = 'meals' | 'exercise'
+
+// 오늘이면 지금 시각에 맞는 끼니, 지난 날짜면 아침부터
+function defaultMeal(date: string): MealKey {
+  if (date !== today()) return 'breakfast'
+  const h = new Date().getHours()
+  return h < 10 ? 'breakfast' : h < 15 ? 'lunch' : h < 21 ? 'dinner' : 'snack'
+}
+
 export function HealthPage() {
-  // 검색 결과 등에서 /health?date=YYYY-MM-DD로 들어오면 그 날짜를 연다.
-  const [params] = useSearchParams()
-  const [date, setDate] = useState(() => {
+  // 날짜·탭·끼니를 주소(?date=&tab=&meal=)에 남겨 새로고침·뒤로 가기·검색 결과 이동에도 유지한다.
+  const [params, setParams] = useSearchParams()
+  const [date, setDateState] = useState(() => {
     const d = params.get('date')
     return d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= today() ? d : today()
   })
+  const tab: Tab = params.get('tab') === 'exercise' ? 'exercise' : 'meals'
+  const mealParam = params.get('meal')
+  const meal = MEALS.some((m) => m.key === mealParam) ? (mealParam as MealKey) : defaultMeal(date)
+
+  const updateParams = (next: { date?: string; tab?: Tab; meal?: MealKey }) =>
+    setParams(
+      (prev) => {
+        const p = new URLSearchParams(prev)
+        const d = next.date ?? date
+        if (d === today()) p.delete('date')
+        else p.set('date', d)
+        p.set('tab', next.tab ?? tab)
+        p.set('meal', next.meal ?? meal)
+        return p
+      },
+      { replace: true },
+    )
+  const setDate = (d: string) => {
+    setDateState(d)
+    updateParams({ date: d })
+  }
+
   // 불러온 날짜를 같이 들고 있어서, 날짜를 바꾼 직후 이전 날짜 데이터로 폼이 그려지지 않게 한다.
   const day = useLoad(async () => ({ date, ...(await getHealthDay(date)) }), [date])
   const recent = useLoad(() => listHealthRange(shiftDate(today(), -6), today()), [day.data])
   const { data: kinds } = useLoad(listExerciseKinds, [day.data])
   const { data: foods } = useLoad(listFoodNames, [day.data])
 
-  const recorded = new Set(
-    [...(recent.data?.exercises ?? []), ...(recent.data?.meals ?? [])].map((r) => r.log_date),
-  )
+  const recorded = new Set([...(recent.data?.exercises ?? []), ...(recent.data?.meals ?? [])].map((r) => r.log_date))
   const week = Array.from({ length: 7 }, (_, i) => shiftDate(today(), i - 6))
+  const loaded = day.data?.date === date ? day.data : null
 
   return (
     <section>
@@ -79,39 +109,71 @@ export function HealthPage() {
       </div>
       <p className="mb-4 text-sm text-neutral-500">{formatDate(date)}</p>
 
-      {day.data?.date !== date ? (
+      {!loaded ? (
         <StatusMessage loading={day.loading} error={day.error} />
       ) : (
-        <div className="flex flex-col gap-3">
-          <Section title="식단" summary={mealSummary(day.data.meals)} defaultOpen>
+        <div className="flex flex-col gap-4">
+          <Tabs
+            label="건강 기록 종류"
+            value={tab}
+            onChange={(t) => updateParams({ tab: t })}
+            items={[
+              { key: 'meals', label: '식단', badge: loaded.meals.length > 0 && <Count n={loaded.meals.length} unit="끼" /> },
+              { key: 'exercise', label: '운동', badge: loaded.exercises.length > 0 && <Count n={loaded.exercises.length} unit="건" /> },
+            ]}
+          />
+
+          <div role="tabpanel" hidden={tab !== 'meals'} className="flex flex-col gap-3">
+            <Tabs
+              label="끼니"
+              variant="secondary"
+              value={meal}
+              onChange={(m) => updateParams({ meal: m })}
+              items={MEALS.map((m) => {
+                const log = loaded.meals.find((x) => x.meal === m.key)
+                return { key: m.key, label: m.label, badge: log && <MealMark symptom={log.symptoms.length > 0} /> }
+              })}
+            />
+            {/* 탭을 옮겨도 입력 중인 내용이 사라지지 않도록 네 끼니 카드를 모두 두고 숨기기만 한다. */}
             {MEALS.map((m) => (
-              <MealCard
-                key={`${date}-${m.key}`}
-                date={date}
-                meal={m.key}
-                label={m.label}
-                initial={day.data?.meals.find((x) => x.meal === m.key)}
-                foodSuggestions={foods ?? []}
-                onSaved={day.reload}
-              />
+              <div key={`${date}-${m.key}`} role="tabpanel" hidden={meal !== m.key}>
+                <MealCard
+                  date={date}
+                  meal={m.key}
+                  label={m.label}
+                  initial={loaded.meals.find((x) => x.meal === m.key)}
+                  foodSuggestions={foods ?? []}
+                  onSaved={day.reload}
+                />
+              </div>
             ))}
-          </Section>
-          <Section title="운동" summary={exerciseSummary(day.data.exercises.map((e) => e.minutes))} defaultOpen>
-            <ExerciseList date={date} exercises={day.data.exercises} kinds={kinds ?? []} onChange={day.reload} />
-          </Section>
+          </div>
+
+          <div role="tabpanel" hidden={tab !== 'exercise'}>
+            <ExerciseList date={date} exercises={loaded.exercises} kinds={kinds ?? []} onChange={day.reload} />
+          </div>
         </div>
       )}
     </section>
   )
 }
 
-function mealSummary(meals: { foods: string[]; symptoms: string[] }[]) {
-  if (meals.length === 0) return ''
-  const withSymptom = meals.filter((m) => m.symptoms.length > 0).length
-  return `${meals.length}끼${withSymptom ? ` · 증상 ${withSymptom}` : ''}`
+function Count({ n, unit }: { n: number; unit: string }) {
+  return (
+    <span className="text-xs font-normal text-neutral-500">
+      {n}
+      {unit}
+    </span>
+  )
 }
 
-function exerciseSummary(minutes: number[]) {
-  if (minutes.length === 0) return ''
-  return `${minutes.length}건 · ${minutes.reduce((a, b) => a + b, 0)}분`
+// 끼니 탭 표시: 기록 있음(점), 증상 있음(!)
+function MealMark({ symptom }: { symptom: boolean }) {
+  return symptom ? (
+    <span className="text-xs font-bold" aria-label="증상 있음">
+      !
+    </span>
+  ) : (
+    <span className="size-1.5 rounded-full bg-current" aria-label="기록 있음" />
+  )
 }

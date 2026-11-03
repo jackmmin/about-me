@@ -51,8 +51,7 @@ export function MealCard({
   }
 
   return (
-    <div className="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
-      <p className="mb-2 text-sm font-semibold">{label}</p>
+    <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
       <div className="flex flex-col gap-3">
         <TagInput
           value={foods}
