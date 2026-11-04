@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">About Me</string>
-    <string name="title_activity_main">About Me</string>
+    <string name="app_name">생활기록</string>
+    <string name="title_activity_main">생활기록</string>
     <string name="package_name">io.github.jackmmin.aboutme</string>
     <string name="custom_url_scheme">io.github.jackmmin.aboutme</string>
 </resources>
