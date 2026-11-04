@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { imageDraftId, type ImageDraft } from '../lib/entries.ts'
 import { thumbPath } from '../lib/images.ts'
 import { useSignedUrls } from '../lib/useSignedUrls.ts'
@@ -20,16 +19,14 @@ export function ImagePicker({
 }) {
   const existingThumbs = value.flatMap((d) => (d.kind === 'existing' ? [thumbPath(d.image.storage_path)] : []))
   const urls = useSignedUrls(existingThumbs)
-  const [notice, setNotice] = useState<string | null>(null)
   const coverId = value.some((d) => imageDraftId(d) === cover) ? cover : value[0] && imageDraftId(value[0])
   const full = max !== undefined && value.length >= max
 
   function addFiles(files: FileList | null) {
-    if (!files) return
-    const room = max === undefined ? files.length : Math.max(0, max - value.length)
-    const picked = Array.from(files).slice(0, room)
-    setNotice(picked.length < files.length ? `사진은 최대 ${max}장까지예요. 앞의 ${picked.length}장만 추가했습니다.` : null)
-    const added: ImageDraft[] = picked.map((file) => ({
+    if (!files || files.length === 0) return
+    // 최대 장수를 넘기면 고른 사진을 하나도 넣지 않는다.
+    if (max !== undefined && value.length + files.length > max) return alert(`최대 등록 개수는 ${max}개입니다.`)
+    const added: ImageDraft[] = Array.from(files).map((file) => ({
       kind: 'new',
       key: crypto.randomUUID(),
       file,
@@ -45,7 +42,6 @@ export function ImagePicker({
     else {
       const [removed] = copy.splice(index, 1)
       if (removed.kind === 'new') URL.revokeObjectURL(removed.previewUrl)
-      setNotice(null)
     }
     onChange(copy)
   }
@@ -128,7 +124,6 @@ export function ImagePicker({
           }}
         />
       </label>
-      {notice && <p className="text-xs text-amber-600 dark:text-amber-400">{notice}</p>}
     </div>
   )
 }
