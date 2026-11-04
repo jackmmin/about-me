@@ -5,7 +5,7 @@ import type { Entry, EntryImage, EntryType, Passage } from './types.ts'
 const SELECT = 'id, type, title, content, record_date, created_at, updated_at, meta, entry_images(*), entry_tags(tags(name))'
 
 interface EntryRow extends Omit<Entry, 'images' | 'tags' | 'passages'> {
-  meta: { passages?: Passage[] } | null
+  meta: { passages?: Passage[]; cover?: string } | null
   entry_images: EntryImage[]
   entry_tags: { tags: { name: string } | null }[]
 }
@@ -15,6 +15,7 @@ function toEntry(row: EntryRow): Entry {
   return {
     ...rest,
     passages: meta?.passages ?? [],
+    coverId: meta?.cover ?? null,
     images: [...entry_images].sort((a, b) => a.sort_order - b.sort_order),
     tags: entry_tags.flatMap((t) => (t.tags ? [t.tags.name] : [])).sort(),
   }
@@ -52,9 +53,12 @@ export async function listTags() {
 }
 
 // 편집 화면의 사진 한 장: 이미 저장된 사진이거나 새로 고른 파일
+// 새 사진의 key는 저장할 때 entry_images.id로 그대로 쓴다 (대표 사진을 업로드 전에 지정하기 위해).
 export type ImageDraft =
   | { kind: 'existing'; image: EntryImage; caption: string }
   | { kind: 'new'; key: string; file: File; previewUrl: string; caption: string }
+
+export const imageDraftId = (d: ImageDraft) => (d.kind === 'new' ? d.key : d.image.id)
 
 export interface EntryDraft {
   type: EntryType
@@ -64,6 +68,7 @@ export interface EntryDraft {
   tags: string[]
   images: ImageDraft[]
   passages: Passage[]
+  cover: string | null // 대표 사진의 imageDraftId. null이면 첫 사진
 }
 
 // 기록 저장: 본문 → 태그 → 사진(삭제, 순서·설명 갱신, 새 업로드) 순서로 반영한다.
@@ -78,7 +83,7 @@ export async function saveEntry(
     title: draft.title,
     content: draft.content,
     record_date: draft.record_date,
-    ...(draft.type === 'meditation' && { meta: { passages: draft.passages } }),
+    meta: draft.type === 'meditation' ? { passages: draft.passages } : coverMeta(draft),
   }
   const { data, error } = original
     ? await supabase.from('entries').update(fields).eq('id', original.id).select('id').single()
@@ -113,7 +118,7 @@ export async function saveEntry(
       const path = await uploadImage(userId, entryId, d.file)
       const { error } = await supabase
         .from('entry_images')
-        .insert({ entry_id: entryId, storage_path: path, caption: d.caption, sort_order: index })
+        .insert({ id: d.key, entry_id: entryId, storage_path: path, caption: d.caption, sort_order: index })
       if (error) {
         await removeImages([path])
         throw error
@@ -121,6 +126,11 @@ export async function saveEntry(
     }
   }
   return entryId
+}
+
+// 대표 사진이 남아 있는 사진 중에 있을 때만 저장한다.
+function coverMeta(draft: EntryDraft) {
+  return draft.cover && draft.images.some((d) => imageDraftId(d) === draft.cover) ? { cover: draft.cover } : {}
 }
 
 // 기록의 태그를 names로 맞춘다 (없는 태그는 만든다). 복원에서도 쓴다.

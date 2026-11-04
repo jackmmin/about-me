@@ -35,8 +35,11 @@ function toDraft(type: EntryType, original: Entry | null): EntryDraft {
     tags: original?.tags ?? [],
     images: (original?.images ?? []).map((image) => ({ kind: 'existing', image, caption: image.caption })),
     passages: original?.passages ?? [],
+    cover: original?.coverId ?? null,
   }
 }
+
+const DIARY_MAX_IMAGES = 5
 
 function EntryForm({ type, original, tagSuggestions }: { type: EntryType; original: Entry | null; tagSuggestions: string[] }) {
   const navigate = useNavigate()
@@ -63,6 +66,8 @@ function EntryForm({ type, original, tagSuggestions }: { type: EntryType; origin
     e.preventDefault()
     if (type === 'photo' && draft.images.length === 0) return setError('사진을 한 장 이상 추가하세요.')
     if (type === 'diary' && !draft.title.trim() && !draft.content.trim()) return setError('제목이나 내용을 입력하세요.')
+    if (type === 'diary' && draft.images.length > DIARY_MAX_IMAGES)
+      return setError(`일기 사진은 최대 ${DIARY_MAX_IMAGES}장입니다. ${draft.images.length - DIARY_MAX_IMAGES}장을 빼 주세요.`)
     if (type === 'meditation' && draft.passages.length === 0 && !draft.content.trim())
       return setError('말씀을 추가하거나 묵상 내용을 입력하세요.')
     if (!session) return
@@ -108,7 +113,9 @@ function EntryForm({ type, original, tagSuggestions }: { type: EntryType; origin
           onChange={(e) => set('title', e.target.value)}
         />
 
-        {type === 'photo' && <ImagePicker value={draft.images} onChange={(v) => set('images', v)} />}
+        {type === 'photo' && (
+          <ImagePicker value={draft.images} onChange={(v) => set('images', v)} cover={draft.cover} onCoverChange={(c) => set('cover', c)} />
+        )}
         {type === 'meditation' && <PassagePicker value={draft.passages} onChange={(v) => set('passages', v)} />}
 
         <div>
@@ -140,7 +147,15 @@ function EntryForm({ type, original, tagSuggestions }: { type: EntryType; origin
           )}
         </div>
 
-        {type === 'diary' && <ImagePicker value={draft.images} onChange={(v) => set('images', v)} />}
+        {type === 'diary' && (
+          <ImagePicker
+            value={draft.images}
+            onChange={(v) => set('images', v)}
+            max={DIARY_MAX_IMAGES}
+            cover={draft.cover}
+            onCoverChange={(c) => set('cover', c)}
+          />
+        )}
 
         <TagInput value={draft.tags} onChange={(v) => set('tags', v)} suggestions={tagSuggestions} />
 

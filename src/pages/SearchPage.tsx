@@ -6,7 +6,7 @@ import { PageHeader, StatusMessage } from '../components/ui.tsx'
 import { sanitizeQuery, searchEntries } from '../lib/entries.ts'
 import { formatDate } from '../lib/format.ts'
 import { searchHealth } from '../lib/health.ts'
-import { thumbPath } from '../lib/images.ts'
+import { coverThumbPath } from '../lib/images.ts'
 import { useLoad } from '../lib/useLoad.ts'
 import { useSignedUrls } from '../lib/useSignedUrls.ts'
 
@@ -14,7 +14,6 @@ type Filter = 'all' | 'diary' | 'photo' | 'health' | 'meditation'
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: '전체' },
   { key: 'diary', label: '일기' },
-  { key: 'photo', label: '사진' },
   { key: 'health', label: '건강' },
   { key: 'meditation', label: '묵상' },
 ]
@@ -49,7 +48,7 @@ export function SearchPage() {
   const entries = (data?.entries ?? []).filter((e) => filter === 'all' || filter === e.type)
   const health = filter === 'all' || filter === 'health' ? (data?.health ?? []) : []
   const showEntries = filter !== 'health'
-  const thumbs = useSignedUrls(entries.flatMap((e) => (e.images[0] ? [thumbPath(e.images[0].storage_path)] : [])))
+  const thumbs = useSignedUrls(entries.flatMap((e) => coverThumbPath(e) ?? []))
   const count = (showEntries ? entries.length : 0) + health.length
 
   return (
@@ -88,7 +87,7 @@ export function SearchPage() {
         <div className="flex flex-col gap-3">
           {showEntries &&
             entries.map((e) => (
-              <EntryCard key={e.id} entry={e} showType thumbUrl={e.images[0] && thumbs[thumbPath(e.images[0].storage_path)]} />
+              <EntryCard key={e.id} entry={e} showType thumbUrl={thumbs[coverThumbPath(e) ?? '']} />
             ))}
           {health.map((h, i) => (
             <Link

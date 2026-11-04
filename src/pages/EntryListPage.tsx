@@ -4,7 +4,7 @@ import { EntryCard } from '../components/EntryCard.tsx'
 import { primaryClass, secondaryClass } from '../components/styles.ts'
 import { PageHeader, StatusMessage, TagChip } from '../components/ui.tsx'
 import { listEntries } from '../lib/entries.ts'
-import { thumbPath } from '../lib/images.ts'
+import { coverThumbPath } from '../lib/images.ts'
 import type { EntryType } from '../lib/types.ts'
 import { useLoad } from '../lib/useLoad.ts'
 import { useSignedUrls } from '../lib/useSignedUrls.ts'
@@ -28,7 +28,7 @@ export function EntryListPage({ type }: { type: ListType }) {
   const visible = tag ? entries.filter((e) => e.tags.includes(tag)) : entries
   const allTags = [...new Set(entries.flatMap((e) => e.tags))].sort()
   const info = LIST_INFO[type]
-  const thumbs = useSignedUrls(visible.flatMap((e) => (e.images[0] ? [thumbPath(e.images[0].storage_path)] : [])))
+  const thumbs = useSignedUrls(visible.flatMap((e) => coverThumbPath(e) ?? []))
 
   return (
     <section>
@@ -55,7 +55,7 @@ export function EntryListPage({ type }: { type: ListType }) {
       ) : (
         <div className="flex flex-col gap-3">
           {visible.map((e) => (
-            <EntryCard key={e.id} entry={e} thumbUrl={e.images[0] && thumbs[thumbPath(e.images[0].storage_path)]} />
+            <EntryCard key={e.id} entry={e} thumbUrl={thumbs[coverThumbPath(e) ?? '']} />
           ))}
         </div>
       )}

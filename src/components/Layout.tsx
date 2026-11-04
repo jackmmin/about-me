@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from 'react-router'
 import { signOut } from '../auth/useAuth.ts'
-import { SECTIONS } from '../sections.ts'
+import { NAV_SECTIONS } from '../sections.ts'
 import { SectionIcon } from './SectionIcon.tsx'
 import { ThemeToggle } from './ThemeToggle.tsx'
 
@@ -34,7 +34,7 @@ export function Layout() {
       <aside className="hidden md:sticky md:top-0 md:flex md:h-dvh md:w-56 md:shrink-0 md:flex-col md:border-r md:border-neutral-200 md:px-3 md:py-6 dark:md:border-neutral-800">
         <p className="mb-6 px-3 text-lg font-bold">About Me</p>
         <nav className="flex flex-col gap-1">
-          {SECTIONS.map((s) => (
+          {NAV_SECTIONS.map((s) => (
             <NavLink key={s.key} to={s.path} end={s.path === '/'} className={sideLinkClass}>
               <SectionIcon section={s.key} className="size-5" />
               {s.label}
@@ -80,8 +80,11 @@ export function Layout() {
         <Outlet />
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 border-t border-neutral-200 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden dark:border-neutral-800 dark:bg-neutral-950/90">
-        {SECTIONS.map((s) => (
+      <nav
+        className="fixed inset-x-0 bottom-0 z-10 grid border-t border-neutral-200 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden dark:border-neutral-800 dark:bg-neutral-950/90"
+        style={{ gridTemplateColumns: `repeat(${NAV_SECTIONS.length}, minmax(0, 1fr))` }}
+      >
+        {NAV_SECTIONS.map((s) => (
           <NavLink
             key={s.key}
             to={s.path}

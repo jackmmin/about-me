@@ -6,7 +6,7 @@ import { PageHeader, StatusMessage } from '../components/ui.tsx'
 import { listEntries } from '../lib/entries.ts'
 import { formatDate, today } from '../lib/format.ts'
 import { listHealthRange, MEALS, shiftDate, type ExerciseLog, type MealLog } from '../lib/health.ts'
-import { thumbPath } from '../lib/images.ts'
+import { coverThumbPath } from '../lib/images.ts'
 import type { Entry, EntryType } from '../lib/types.ts'
 import { useLoad } from '../lib/useLoad.ts'
 import { useSignedUrls } from '../lib/useSignedUrls.ts'
@@ -17,7 +17,6 @@ type Filter = 'all' | EntryType | 'health'
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: '전체' },
   { key: 'diary', label: '일기' },
-  { key: 'photo', label: '사진' },
   { key: 'meditation', label: '묵상' },
   { key: 'health', label: '건강' },
 ]
@@ -60,7 +59,7 @@ export function HomePage() {
     showHealth ? (data?.exercises ?? []) : [],
   )
   const thumbs = useSignedUrls(
-    timeline.flatMap((d) => d.entries.flatMap((e) => (e.images[0] ? [thumbPath(e.images[0].storage_path)] : []))),
+    timeline.flatMap((d) => d.entries.flatMap((e) => coverThumbPath(e) ?? [])),
   )
 
   return (
@@ -72,9 +71,6 @@ export function HomePage() {
           <>
             <Link to="/entries/new?type=diary" className={primaryClass}>
               새 일기
-            </Link>
-            <Link to="/entries/new?type=photo" className={secondaryClass}>
-              새 앨범
             </Link>
             <Link to="/entries/new?type=meditation" className={secondaryClass}>
               새 묵상
@@ -113,7 +109,7 @@ export function HomePage() {
                     entry={e}
                     showType
                     hideDate
-                    thumbUrl={e.images[0] && thumbs[thumbPath(e.images[0].storage_path)]}
+                    thumbUrl={thumbs[coverThumbPath(e) ?? '']}
                   />
                 ))}
                 {(d.meals.length > 0 || d.exercises.length > 0) && <HealthCard date={d.date} meals={d.meals} exercises={d.exercises} />}

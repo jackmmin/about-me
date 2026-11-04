@@ -1,16 +1,35 @@
-import type { ImageDraft } from '../lib/entries.ts'
+import { useState } from 'react'
+import { imageDraftId, type ImageDraft } from '../lib/entries.ts'
 import { thumbPath } from '../lib/images.ts'
 import { useSignedUrls } from '../lib/useSignedUrls.ts'
 import { fieldClass, secondaryClass } from './styles.ts'
 
-// 사진 추가(카메라/앨범), 순서 변경, 설명 입력, 삭제
-export function ImagePicker({ value, onChange }: { value: ImageDraft[]; onChange: (images: ImageDraft[]) => void }) {
+// 사진 추가(카메라/앨범), 순서 변경, 설명 입력, 삭제, 대표 사진(목록 썸네일) 선택
+export function ImagePicker({
+  value,
+  onChange,
+  max,
+  cover,
+  onCoverChange,
+}: {
+  value: ImageDraft[]
+  onChange: (images: ImageDraft[]) => void
+  max?: number // 최대 장수 (없으면 제한 없음)
+  cover: string | null // 대표 사진의 imageDraftId. null이거나 지운 사진이면 첫 사진
+  onCoverChange: (id: string | null) => void
+}) {
   const existingThumbs = value.flatMap((d) => (d.kind === 'existing' ? [thumbPath(d.image.storage_path)] : []))
   const urls = useSignedUrls(existingThumbs)
+  const [notice, setNotice] = useState<string | null>(null)
+  const coverId = value.some((d) => imageDraftId(d) === cover) ? cover : value[0] && imageDraftId(value[0])
+  const full = max !== undefined && value.length >= max
 
   function addFiles(files: FileList | null) {
     if (!files) return
-    const added: ImageDraft[] = Array.from(files).map((file) => ({
+    const room = max === undefined ? files.length : Math.max(0, max - value.length)
+    const picked = Array.from(files).slice(0, room)
+    setNotice(picked.length < files.length ? `사진은 최대 ${max}장까지예요. 앞의 ${picked.length}장만 추가했습니다.` : null)
+    const added: ImageDraft[] = picked.map((file) => ({
       kind: 'new',
       key: crypto.randomUUID(),
       file,
@@ -26,6 +45,7 @@ export function ImagePicker({ value, onChange }: { value: ImageDraft[]; onChange
     else {
       const [removed] = copy.splice(index, 1)
       if (removed.kind === 'new') URL.revokeObjectURL(removed.previewUrl)
+      setNotice(null)
     }
     onChange(copy)
   }
@@ -41,11 +61,22 @@ export function ImagePicker({ value, onChange }: { value: ImageDraft[]; onChange
   return (
     <div className="flex flex-col gap-3">
       {value.map((d, i) => {
+        const id = imageDraftId(d)
+        const isCover = id === coverId
         const src = d.kind === 'new' ? d.previewUrl : urls[thumbPath(d.image.storage_path)]
         return (
-          <div key={d.kind === 'new' ? d.key : d.image.id} className="flex gap-3">
-            <div className="size-20 shrink-0 overflow-hidden rounded-lg bg-neutral-100 dark:bg-neutral-800">
+          <div key={id} className="flex gap-3">
+            <div
+              className={`relative size-20 shrink-0 overflow-hidden rounded-lg bg-neutral-100 dark:bg-neutral-800 ${
+                isCover ? 'ring-2 ring-neutral-900 dark:ring-white' : ''
+              }`}
+            >
               {src && <img src={src} alt="" className="size-full object-cover" />}
+              {isCover && (
+                <span className="absolute top-1 left-1 rounded bg-neutral-900/80 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                  대표
+                </span>
+              )}
             </div>
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               <input
@@ -54,7 +85,7 @@ export function ImagePicker({ value, onChange }: { value: ImageDraft[]; onChange
                 value={d.caption}
                 onChange={(e) => update(i, { ...d, caption: e.target.value })}
               />
-              <div className="flex gap-1 text-xs text-neutral-500">
+              <div className="flex flex-wrap gap-1 text-xs text-neutral-500">
                 <button type="button" className="px-2 py-1 disabled:opacity-30" disabled={i === 0} onClick={() => move(i, -1)}>
                   ▲ 위로
                 </button>
@@ -66,6 +97,14 @@ export function ImagePicker({ value, onChange }: { value: ImageDraft[]; onChange
                 >
                   ▼ 아래로
                 </button>
+                <button
+                  type="button"
+                  aria-pressed={isCover}
+                  className={`px-2 py-1 ${isCover ? 'font-semibold text-neutral-900 dark:text-white' : ''}`}
+                  onClick={() => onCoverChange(id)}
+                >
+                  {isCover ? '★ 대표 사진' : '☆ 대표로'}
+                </button>
                 <button type="button" className="ml-auto px-2 py-1 text-red-600" onClick={() => update(i, null)}>
                   삭제
                 </button>
@@ -74,19 +113,22 @@ export function ImagePicker({ value, onChange }: { value: ImageDraft[]; onChange
           </div>
         )
       })}
-      <label className={`${secondaryClass} cursor-pointer`}>
-        사진 추가
+      {value.length > 1 && <p className="text-xs text-neutral-400">대표 사진이 목록 썸네일로 보입니다. 따로 고르지 않으면 첫 사진입니다.</p>}
+      <label className={`${secondaryClass} ${full ? 'pointer-events-none opacity-50' : 'cursor-pointer'}`} aria-disabled={full}>
+        사진 추가{max !== undefined && ` (${value.length}/${max})`}
         <input
           type="file"
           accept="image/*"
           multiple
           className="hidden"
+          disabled={full}
           onChange={(e) => {
             addFiles(e.target.files)
             e.target.value = ''
           }}
         />
       </label>
+      {notice && <p className="text-xs text-amber-600 dark:text-amber-400">{notice}</p>}
     </div>
   )
 }

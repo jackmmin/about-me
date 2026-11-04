@@ -26,6 +26,12 @@ export interface Entry {
   images: EntryImage[]
   tags: string[]
   passages: Passage[] // 묵상만 사용 (meta.passages)
+  coverId: string | null // 대표 사진 id (meta.cover). 없으면 첫 사진
+}
+
+// 목록 썸네일로 쓸 대표 사진: 지정한 사진, 없거나 지워졌으면 첫 사진
+export function entryCover(entry: Entry): EntryImage | null {
+  return entry.images.find((img) => img.id === entry.coverId) ?? entry.images[0] ?? null
 }
 
 export const ENTRY_TYPE_LABEL: Record<EntryType, string> = {

@@ -1,4 +1,5 @@
 import { supabase } from './supabase.ts'
+import { entryCover, type Entry } from './types.ts'
 
 const BUCKET = 'images'
 const FULL_SIZE = 2000
@@ -109,4 +110,10 @@ export async function signedUrls(paths: string[]): Promise<Record<string, string
     }
   }
   return result
+}
+
+// 목록 카드에 쓸 대표 사진의 썸네일 경로 (사진이 없으면 undefined)
+export function coverThumbPath(entry: Entry) {
+  const cover = entryCover(entry)
+  return cover ? thumbPath(cover.storage_path) : undefined
 }
