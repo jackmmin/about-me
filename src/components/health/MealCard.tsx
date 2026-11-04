@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { SEVERITY_LABEL, SYMPTOMS, saveMeal, type MealKey, type MealLog, type SymptomKey } from '../../lib/health.ts'
+import { deleteMeal, SEVERITY_LABEL, SYMPTOMS, saveMeal, type MealKey, type MealLog, type SymptomKey } from '../../lib/health.ts'
 import { fieldClass, secondaryClass } from '../styles.ts'
 import { TagInput } from '../TagInput.tsx'
 
 // 끼니 하나: 먹은 음식, 식후 증상(체크 + 정도), 메모. 끼니별로 따로 저장한다.
+// 간식은 한 건마다 카드 하나 (onCancel이 있으면 취소 버튼을 보여준다).
 export function MealCard({
   date,
   meal,
@@ -11,6 +12,7 @@ export function MealCard({
   initial,
   foodSuggestions,
   onSaved,
+  onCancel,
 }: {
   date: string
   meal: MealKey
@@ -18,7 +20,10 @@ export function MealCard({
   initial: MealLog | undefined
   foodSuggestions: string[]
   onSaved: () => void
+  onCancel?: () => void
 }) {
+  // 처음 저장하면 id가 생긴다. 이후 저장은 같은 행을 수정한다.
+  const [id, setId] = useState(initial?.id ?? null)
   const [foods, setFoods] = useState(initial?.foods ?? [])
   const [symptoms, setSymptoms] = useState<SymptomKey[]>(initial?.symptoms ?? [])
   const [severity, setSeverity] = useState<number | null>(initial?.severity ?? null)
@@ -41,9 +46,27 @@ export function MealCard({
   async function save() {
     setStatus({ pending: true })
     try {
-      await saveMeal({ log_date: date, meal, foods, symptoms, severity: symptoms.length ? severity : null, note: note.trim() })
+      setId(await saveMeal({ id, log_date: date, meal, foods, symptoms, severity: symptoms.length ? severity : null, note: note.trim() }))
       setDirty(false)
       setStatus({ message: '저장했습니다.' })
+      onSaved()
+    } catch (e) {
+      setStatus({ error: true, message: e instanceof Error ? e.message : String(e) })
+    }
+  }
+
+  async function remove() {
+    if (!id || !confirm(`이 ${label} 기록을 삭제할까요?`)) return
+    setStatus({ pending: true })
+    try {
+      await deleteMeal(id)
+      setId(null)
+      setFoods([])
+      setSymptoms([])
+      setSeverity(null)
+      setNote('')
+      setDirty(false)
+      setStatus({ message: '삭제했습니다.' })
       onSaved()
     } catch (e) {
       setStatus({ error: true, message: e instanceof Error ? e.message : String(e) })
@@ -132,10 +155,20 @@ export function MealCard({
           <button type="button" className={secondaryClass} disabled={!dirty || status.pending} onClick={() => void save()}>
             {status.pending ? '저장 중…' : `${label} 저장`}
           </button>
+          {onCancel && (
+            <button type="button" className="text-sm text-neutral-500" disabled={status.pending} onClick={onCancel}>
+              취소
+            </button>
+          )}
           {status.message && (
             <span className={`text-xs ${status.error ? 'text-red-600 dark:text-red-400' : 'text-neutral-500'}`}>{status.message}</span>
           )}
           {dirty && !status.pending && <span className="text-xs text-neutral-400">저장 안 됨</span>}
+          {id && (
+            <button type="button" className="ml-auto text-xs text-red-600 disabled:opacity-50 dark:text-red-400" disabled={status.pending} onClick={() => void remove()}>
+              삭제
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { ExerciseList } from '../components/health/ExerciseList.tsx'
 import { MealCard } from '../components/health/MealCard.tsx'
+import { SnackList } from '../components/health/SnackList.tsx'
 import { fieldClass, secondaryClass } from '../components/styles.ts'
 import { Tabs } from '../components/Tabs.tsx'
 import { PageHeader, StatusMessage } from '../components/ui.tsx'
@@ -118,7 +119,7 @@ export function HealthPage() {
             value={tab}
             onChange={(t) => updateParams({ tab: t })}
             items={[
-              { key: 'meals', label: '식단', badge: loaded.meals.length > 0 && <Count n={loaded.meals.length} unit="끼" /> },
+              { key: 'meals', label: '식단', badge: loaded.meals.length > 0 && <Count n={loaded.meals.length} unit="건" /> },
               { key: 'exercise', label: '운동', badge: loaded.exercises.length > 0 && <Count n={loaded.exercises.length} unit="건" /> },
             ]}
           />
@@ -130,21 +131,33 @@ export function HealthPage() {
               value={meal}
               onChange={(m) => updateParams({ meal: m })}
               items={MEALS.map((m) => {
-                const log = loaded.meals.find((x) => x.meal === m.key)
-                return { key: m.key, label: m.label, badge: log && <MealMark symptom={log.symptoms.length > 0} /> }
+                const logs = loaded.meals.filter((x) => x.meal === m.key)
+                const badge = logs.length > 0 && (
+                  <MealMark symptom={logs.some((x) => x.symptoms.length > 0)} count={m.key === 'snack' ? logs.length : undefined} />
+                )
+                return { key: m.key, label: m.label, badge }
               })}
             />
-            {/* 탭을 옮겨도 입력 중인 내용이 사라지지 않도록 네 끼니 카드를 모두 두고 숨기기만 한다. */}
+            {/* 탭을 옮겨도 입력 중인 내용이 사라지지 않도록 네 끼니 패널을 모두 두고 숨기기만 한다. */}
             {MEALS.map((m) => (
               <div key={`${date}-${m.key}`} role="tabpanel" hidden={meal !== m.key}>
-                <MealCard
-                  date={date}
-                  meal={m.key}
-                  label={m.label}
-                  initial={loaded.meals.find((x) => x.meal === m.key)}
-                  foodSuggestions={foods ?? []}
-                  onSaved={day.reload}
-                />
+                {m.key === 'snack' ? (
+                  <SnackList
+                    date={date}
+                    snacks={loaded.meals.filter((x) => x.meal === 'snack')}
+                    foodSuggestions={foods ?? []}
+                    onChange={day.reload}
+                  />
+                ) : (
+                  <MealCard
+                    date={date}
+                    meal={m.key}
+                    label={m.label}
+                    initial={loaded.meals.find((x) => x.meal === m.key)}
+                    foodSuggestions={foods ?? []}
+                    onSaved={day.reload}
+                  />
+                )}
               </div>
             ))}
           </div>
@@ -167,8 +180,9 @@ function Count({ n, unit }: { n: number; unit: string }) {
   )
 }
 
-// 끼니 탭 표시: 기록 있음(점), 증상 있음(!)
-function MealMark({ symptom }: { symptom: boolean }) {
+// 끼니 탭 표시: 기록 있음(점, 간식은 건수), 증상 있음(!)
+function MealMark({ symptom, count }: { symptom: boolean; count?: number }) {
+  if (count !== undefined && !symptom) return <span className="text-xs font-normal text-neutral-500">{count}</span>
   return symptom ? (
     <span className="text-xs font-bold" aria-label="증상 있음">
       !

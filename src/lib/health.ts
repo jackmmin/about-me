@@ -32,6 +32,7 @@ export const MEAL_LABEL = Object.fromEntries(MEALS.map((m) => [m.key, m.label]))
 export const SEVERITY_LABEL: Record<number, string> = { 1: '약', 2: '중', 3: '강' }
 
 export interface MealLog {
+  id: string
   log_date: string
   meal: MealKey
   foods: string[]
@@ -40,12 +41,13 @@ export interface MealLog {
   note: string
 }
 
-const MEAL_COLUMNS = 'log_date, meal, foods, symptoms, severity, note'
+const MEAL_COLUMNS = 'id, log_date, meal, foods, symptoms, severity, note'
 
 export async function getHealthDay(date: string) {
   const [exercises, meals] = await Promise.all([
     supabase.from('exercise_logs').select('*').eq('log_date', date).order('created_at'),
-    supabase.from('meal_logs').select(MEAL_COLUMNS).eq('log_date', date),
+    // 간식은 하루 여러 건이라 등록 순서대로
+    supabase.from('meal_logs').select(MEAL_COLUMNS).eq('log_date', date).order('created_at'),
   ])
   if (exercises.error) throw exercises.error
   if (meals.error) throw meals.error
@@ -65,12 +67,23 @@ export async function listHealthRange(from: string, to: string) {
   return { exercises: exercises.data as ExerciseLog[], meals: meals.data as MealLog[] }
 }
 
-// 하루 끼니당 한 행. 음식·증상·메모가 모두 비면 행을 지운다.
-export async function saveMeal(meal: MealLog) {
+// 아침·점심·저녁은 하루 한 행, 간식은 여러 행. id가 없으면 새로 추가한다.
+// 음식·증상·메모가 모두 비면 행을 지운다. 저장된 행의 id를 돌려준다 (지웠으면 null).
+export async function saveMeal({ id, ...meal }: Omit<MealLog, 'id'> & { id: string | null }) {
   const empty = meal.foods.length === 0 && meal.symptoms.length === 0 && !meal.note
-  const { error } = empty
-    ? await supabase.from('meal_logs').delete().eq('log_date', meal.log_date).eq('meal', meal.meal)
-    : await supabase.from('meal_logs').upsert(meal, { onConflict: 'user_id,log_date,meal' })
+  if (empty) {
+    if (id) await deleteMeal(id)
+    return null
+  }
+  const { data, error } = id
+    ? await supabase.from('meal_logs').update(meal).eq('id', id).select('id').single()
+    : await supabase.from('meal_logs').insert(meal).select('id').single()
+  if (error) throw error
+  return data.id as string
+}
+
+export async function deleteMeal(id: string) {
+  const { error } = await supabase.from('meal_logs').delete().eq('id', id)
   if (error) throw error
 }
 
