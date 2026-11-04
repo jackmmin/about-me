@@ -40,7 +40,7 @@ function toDraft(type: EntryType, original: Entry | null): EntryDraft {
 }
 
 const DIARY_MAX_IMAGES = 5
-const DIARY_MAX_IMAGE_MB = 10
+const DIARY_MAX_IMAGE_MB = 5
 
 function EntryForm({ type, original, tagSuggestions }: { type: EntryType; original: Entry | null; tagSuggestions: string[] }) {
   const navigate = useNavigate()
