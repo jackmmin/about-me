@@ -11,43 +11,38 @@ import { useSignedUrls } from '../lib/useSignedUrls.ts'
 
 const PAGE_SIZE = 30
 
-const LIST_INFO: Partial<Record<EntryType, { title: string; description: string; newLabel: string }>> = {
+const LIST_INFO: Record<ListType, { title: string; description: string; newLabel: string }> = {
   diary: { title: '일기', description: '일상과 하루의 기록', newLabel: '새 일기' },
   meditation: { title: '묵상', description: '말씀과 묵상', newLabel: '새 묵상' },
 }
 
-// type이 없으면 홈(모든 유형의 최근 기록), 있으면 해당 유형 목록
-export function EntryListPage({ type }: { type?: EntryType }) {
-  const [limit, setLimit] = useState(type ? PAGE_SIZE : 20)
+type ListType = Exclude<EntryType, 'photo'> // 사진은 PhotoGalleryPage
+
+// 일기·묵상 목록 (홈은 HomePage)
+export function EntryListPage({ type }: { type: ListType }) {
+  const [limit, setLimit] = useState(PAGE_SIZE)
   const [tag, setTag] = useState<string | null>(null)
   const { data, error, loading } = useLoad(() => listEntries({ type, limit }), [type, limit])
 
   const entries = data ?? []
   const visible = tag ? entries.filter((e) => e.tags.includes(tag)) : entries
   const allTags = [...new Set(entries.flatMap((e) => e.tags))].sort()
-  const info = type && LIST_INFO[type]
+  const info = LIST_INFO[type]
   const thumbs = useSignedUrls(visible.flatMap((e) => (e.images[0] ? [thumbPath(e.images[0].storage_path)] : [])))
-
-  const actions = info ? (
-    <Link to={`/entries/new?type=${type}`} className={primaryClass}>
-      {info.newLabel}
-    </Link>
-  ) : (
-    <>
-      <Link to="/entries/new?type=diary" className={primaryClass}>
-        새 일기
-      </Link>
-      <Link to="/entries/new?type=photo" className={secondaryClass}>
-        새 앨범
-      </Link>
-    </>
-  )
 
   return (
     <section>
-      <PageHeader title={info ? info.title : '홈'} description={info ? info.description : '최근 기록'} actions={actions} />
+      <PageHeader
+        title={info.title}
+        description={info.description}
+        actions={
+          <Link to={`/entries/new?type=${type}`} className={primaryClass}>
+            {info.newLabel}
+          </Link>
+        }
+      />
 
-      {type && allTags.length > 0 && (
+      {allTags.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-1.5">
           {allTags.map((t) => (
             <TagChip key={t} name={t} active={tag === t} onClick={() => setTag(tag === t ? null : t)} />
@@ -60,17 +55,12 @@ export function EntryListPage({ type }: { type?: EntryType }) {
       ) : (
         <div className="flex flex-col gap-3">
           {visible.map((e) => (
-            <EntryCard
-              key={e.id}
-              entry={e}
-              showType={!type}
-              thumbUrl={e.images[0] && thumbs[thumbPath(e.images[0].storage_path)]}
-            />
+            <EntryCard key={e.id} entry={e} thumbUrl={e.images[0] && thumbs[thumbPath(e.images[0].storage_path)]} />
           ))}
         </div>
       )}
 
-      {type && entries.length === limit && (
+      {entries.length === limit && (
         <button className={`${secondaryClass} mt-4 w-full`} disabled={loading} onClick={() => setLimit(limit + PAGE_SIZE)}>
           {loading ? '불러오는 중…' : '더 보기'}
         </button>

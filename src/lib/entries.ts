@@ -20,7 +20,12 @@ function toEntry(row: EntryRow): Entry {
   }
 }
 
-export async function listEntries({ type, limit = 50, offset = 0 }: { type?: EntryType; limit?: number; offset?: number } = {}) {
+export async function listEntries({
+  type,
+  from,
+  limit = 50,
+  offset = 0,
+}: { type?: EntryType; from?: string; limit?: number; offset?: number } = {}) {
   let query = supabase
     .from('entries')
     .select(SELECT)
@@ -28,6 +33,7 @@ export async function listEntries({ type, limit = 50, offset = 0 }: { type?: Ent
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
   if (type) query = query.eq('type', type)
+  if (from) query = query.gte('record_date', from)
   const { data, error } = await query
   if (error) throw error
   return (data as unknown as EntryRow[]).map(toEntry)

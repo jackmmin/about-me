@@ -4,7 +4,18 @@ import { excerpt, formatDate } from '../lib/format.ts'
 import { ENTRY_TYPE_LABEL, type Entry } from '../lib/types.ts'
 import { TagChip } from './ui.tsx'
 
-export function EntryCard({ entry, thumbUrl, showType }: { entry: Entry; thumbUrl?: string; showType?: boolean }) {
+// hideDate: 홈 타임라인처럼 날짜 제목 아래에 놓일 때 날짜를 생략
+export function EntryCard({
+  entry,
+  thumbUrl,
+  showType,
+  hideDate,
+}: {
+  entry: Entry
+  thumbUrl?: string
+  showType?: boolean
+  hideDate?: boolean
+}) {
   const preview = excerpt(entry.content)
   const passages = formatPassages(entry.passages)
   return (
@@ -15,8 +26,9 @@ export function EntryCard({ entry, thumbUrl, showType }: { entry: Entry; thumbUr
       <div className="min-w-0 flex-1">
         <p className="text-xs text-neutral-500">
           {showType && <span className="mr-1.5 font-semibold">{ENTRY_TYPE_LABEL[entry.type]}</span>}
-          {formatDate(entry.record_date)}
-          {entry.images.length > 0 && <span className="ml-1.5">· 사진 {entry.images.length}</span>}
+          {[!hideDate && formatDate(entry.record_date), entry.images.length > 0 && `사진 ${entry.images.length}`]
+            .filter(Boolean)
+            .join(' · ')}
         </p>
         <p className="mt-1 truncate font-semibold">{entry.title || passages || '제목 없음'}</p>
         {entry.title && passages && <p className="mt-0.5 truncate text-sm text-neutral-500">{passages}</p>}

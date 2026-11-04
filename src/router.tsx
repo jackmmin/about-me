@@ -7,6 +7,7 @@ import { EntryListPage } from './pages/EntryListPage.tsx'
 import { FoodAnalysisPage } from './pages/FoodAnalysisPage.tsx'
 import { HealthPage } from './pages/HealthPage.tsx'
 import { HealthStatsPage } from './pages/HealthStatsPage.tsx'
+import { HomePage } from './pages/HomePage.tsx'
 import { PhotoGalleryPage } from './pages/PhotoGalleryPage.tsx'
 import { SearchPage } from './pages/SearchPage.tsx'
 
@@ -19,7 +20,7 @@ export const router = createHashRouter([
       {
         element: <Layout />,
         children: [
-          { path: '/', element: <EntryListPage /> },
+          { path: '/', element: <HomePage /> },
           { path: '/diary', element: <EntryListPage type="diary" /> },
           { path: '/meditation', element: <EntryListPage type="meditation" /> },
           { path: '/photos', element: <PhotoGalleryPage /> },
