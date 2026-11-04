@@ -50,6 +50,33 @@ export async function uploadImage(userId: string, entryId: string, file: File) {
   return path
 }
 
+// 백업용: 원본 사진 파일 받기
+export async function downloadImage(path: string) {
+  const { data, error } = await supabase.storage.from(BUCKET).download(path)
+  if (error) throw error
+  return new Uint8Array(await data.arrayBuffer())
+}
+
+// 복원용: 백업의 원본(이미 압축된 JPEG)을 그대로 올리고 썸네일만 다시 만든다.
+export async function uploadBackupImage(path: string, bytes: Uint8Array) {
+  const full = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'image/jpeg' })
+  const bitmap = await createImageBitmap(full)
+  let thumb: Blob
+  try {
+    thumb = await resize(bitmap, THUMB_SIZE, 0.8)
+  } finally {
+    bitmap.close()
+  }
+  const bucket = supabase.storage.from(BUCKET)
+  for (const [p, blob] of [
+    [path, full],
+    [thumbPath(path), thumb],
+  ] as const) {
+    const { error } = await bucket.upload(p, blob, { contentType: 'image/jpeg', upsert: true })
+    if (error) throw error
+  }
+}
+
 export async function removeImages(paths: string[]) {
   if (paths.length === 0) return
   const all = paths.flatMap((p) => [p, thumbPath(p)])

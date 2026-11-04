@@ -123,7 +123,8 @@ export async function saveEntry(
   return entryId
 }
 
-async function syncTags(entryId: string, names: string[]) {
+// 기록의 태그를 names로 맞춘다 (없는 태그는 만든다). 복원에서도 쓴다.
+export async function syncTags(entryId: string, names: string[]) {
   const { error: deleteError } = await supabase.from('entry_tags').delete().eq('entry_id', entryId)
   if (deleteError) throw deleteError
   if (names.length === 0) return

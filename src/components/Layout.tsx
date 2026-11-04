@@ -12,6 +12,21 @@ function SearchIcon({ className }: { className?: string }) {
   )
 }
 
+function BackupIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M4 14v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5M12 4v11M8 11l4 4 4-4" />
+    </svg>
+  )
+}
+
+const sideLinkClass = ({ isActive }: { isActive: boolean }) =>
+  `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+    isActive
+      ? 'bg-neutral-100 font-semibold dark:bg-neutral-800'
+      : 'text-neutral-600 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:bg-neutral-900'
+  }`
+
 // PC(md 이상): 왼쪽 사이드바 / 모바일: 하단 탭바
 export function Layout() {
   return (
@@ -20,34 +35,18 @@ export function Layout() {
         <p className="mb-6 px-3 text-lg font-bold">About Me</p>
         <nav className="flex flex-col gap-1">
           {SECTIONS.map((s) => (
-            <NavLink
-              key={s.key}
-              to={s.path}
-              end={s.path === '/'}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                  isActive
-                    ? 'bg-neutral-100 font-semibold dark:bg-neutral-800'
-                    : 'text-neutral-600 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:bg-neutral-900'
-                }`
-              }
-            >
+            <NavLink key={s.key} to={s.path} end={s.path === '/'} className={sideLinkClass}>
               <SectionIcon section={s.key} className="size-5" />
               {s.label}
             </NavLink>
           ))}
-          <NavLink
-            to="/search"
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                isActive
-                  ? 'bg-neutral-100 font-semibold dark:bg-neutral-800'
-                  : 'text-neutral-600 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:bg-neutral-900'
-              }`
-            }
-          >
+          <NavLink to="/search" className={sideLinkClass}>
             <SearchIcon className="size-5" />
             검색
+          </NavLink>
+          <NavLink to="/backup" className={sideLinkClass}>
+            <BackupIcon className="size-5" />
+            백업
           </NavLink>
         </nav>
         <div className="mt-auto flex flex-col gap-1 px-1">
@@ -66,6 +65,9 @@ export function Layout() {
         <div className="flex items-center gap-1">
           <NavLink to="/search" className="rounded-lg p-1.5 text-neutral-500" aria-label="검색">
             <SearchIcon className="size-5" />
+          </NavLink>
+          <NavLink to="/backup" className="rounded-lg p-1.5 text-neutral-500" aria-label="백업">
+            <BackupIcon className="size-5" />
           </NavLink>
           <ThemeToggle />
           <button className="ml-1 text-sm text-neutral-500" onClick={() => void signOut()}>

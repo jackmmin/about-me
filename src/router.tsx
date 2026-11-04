@@ -1,6 +1,7 @@
 import { createHashRouter, Navigate } from 'react-router'
 import { AuthGate } from './auth/AuthGate.tsx'
 import { Layout } from './components/Layout.tsx'
+import { BackupPage } from './pages/BackupPage.tsx'
 import { EntryDetailPage } from './pages/EntryDetailPage.tsx'
 import { EntryEditPage } from './pages/EntryEditPage.tsx'
 import { EntryListPage } from './pages/EntryListPage.tsx'
@@ -28,6 +29,7 @@ export const router = createHashRouter([
           { path: '/health/stats', element: <HealthStatsPage /> },
           { path: '/health/foods', element: <FoodAnalysisPage /> },
           { path: '/search', element: <SearchPage /> },
+          { path: '/backup', element: <BackupPage /> },
           { path: '/entries/new', element: <EntryEditPage /> },
           { path: '/entries/:id', element: <EntryDetailPage /> },
           { path: '/entries/:id/edit', element: <EntryEditPage /> },
