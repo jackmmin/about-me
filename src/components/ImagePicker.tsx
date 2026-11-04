@@ -8,12 +8,14 @@ export function ImagePicker({
   value,
   onChange,
   max,
+  maxMb,
   cover,
   onCoverChange,
 }: {
   value: ImageDraft[]
   onChange: (images: ImageDraft[]) => void
   max?: number // 최대 장수 (없으면 제한 없음)
+  maxMb?: number // 사진 한 장의 최대 용량 MB (없으면 제한 없음)
   cover: string | null // 대표 사진의 imageDraftId. null이거나 지운 사진이면 첫 사진
   onCoverChange: (id: string | null) => void
 }) {
@@ -26,6 +28,15 @@ export function ImagePicker({
     if (!files || files.length === 0) return
     // 최대 장수를 넘기면 고른 사진을 하나도 넣지 않는다.
     if (max !== undefined && value.length + files.length > max) return alert(`최대 등록 개수는 ${max}개입니다.`)
+    // 용량 초과 사진이 하나라도 있으면 마찬가지로 넣지 않고, 고른 순서로 몇 번째인지 알려준다.
+    if (maxMb !== undefined) {
+      const over = Array.from(files).flatMap((f, i) =>
+        f.size > maxMb * 1024 * 1024 ? [`${i + 1}번째 사진 (${f.name}, ${(f.size / 1024 / 1024).toFixed(1)}MB)`] : [],
+      )
+      if (over.length > 0) return alert(`최대 ${maxMb}MB 크기만 저장할 수 있습니다.
+
+용량 초과: ${over.join(', ')}`)
+    }
     const added: ImageDraft[] = Array.from(files).map((file) => ({
       kind: 'new',
       key: crypto.randomUUID(),

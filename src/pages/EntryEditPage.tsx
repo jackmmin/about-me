@@ -40,6 +40,7 @@ function toDraft(type: EntryType, original: Entry | null): EntryDraft {
 }
 
 const DIARY_MAX_IMAGES = 5
+const DIARY_MAX_IMAGE_MB = 10
 
 function EntryForm({ type, original, tagSuggestions }: { type: EntryType; original: Entry | null; tagSuggestions: string[] }) {
   const navigate = useNavigate()
@@ -152,6 +153,7 @@ function EntryForm({ type, original, tagSuggestions }: { type: EntryType; origin
             value={draft.images}
             onChange={(v) => set('images', v)}
             max={DIARY_MAX_IMAGES}
+            maxMb={DIARY_MAX_IMAGE_MB}
             cover={draft.cover}
             onCoverChange={(c) => set('cover', c)}
           />
