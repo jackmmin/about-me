@@ -1,18 +1,20 @@
 import { removeImages, uploadImage } from './images.ts'
 import { supabase } from './supabase.ts'
-import type { Entry, EntryImage, EntryType } from './types.ts'
+import type { Entry, EntryImage, EntryType, Passage } from './types.ts'
 
-const SELECT = 'id, type, title, content, record_date, created_at, updated_at, entry_images(*), entry_tags(tags(name))'
+const SELECT = 'id, type, title, content, record_date, created_at, updated_at, meta, entry_images(*), entry_tags(tags(name))'
 
-interface EntryRow extends Omit<Entry, 'images' | 'tags'> {
+interface EntryRow extends Omit<Entry, 'images' | 'tags' | 'passages'> {
+  meta: { passages?: Passage[] } | null
   entry_images: EntryImage[]
   entry_tags: { tags: { name: string } | null }[]
 }
 
 function toEntry(row: EntryRow): Entry {
-  const { entry_images, entry_tags, ...rest } = row
+  const { meta, entry_images, entry_tags, ...rest } = row
   return {
     ...rest,
+    passages: meta?.passages ?? [],
     images: [...entry_images].sort((a, b) => a.sort_order - b.sort_order),
     tags: entry_tags.flatMap((t) => (t.tags ? [t.tags.name] : [])).sort(),
   }
@@ -55,6 +57,7 @@ export interface EntryDraft {
   record_date: string
   tags: string[]
   images: ImageDraft[]
+  passages: Passage[]
 }
 
 // 기록 저장: 본문 → 태그 → 사진(삭제, 순서·설명 갱신, 새 업로드) 순서로 반영한다.
@@ -64,7 +67,13 @@ export async function saveEntry(
   original: Entry | null,
   onProgress?: (message: string) => void,
 ) {
-  const fields = { type: draft.type, title: draft.title, content: draft.content, record_date: draft.record_date }
+  const fields = {
+    type: draft.type,
+    title: draft.title,
+    content: draft.content,
+    record_date: draft.record_date,
+    ...(draft.type === 'meditation' && { meta: { passages: draft.passages } }),
+  }
   const { data, error } = original
     ? await supabase.from('entries').update(fields).eq('id', original.id).select('id').single()
     : await supabase.from('entries').insert(fields).select('id').single()

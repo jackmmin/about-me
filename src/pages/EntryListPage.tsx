@@ -11,6 +11,11 @@ import { useSignedUrls } from '../lib/useSignedUrls.ts'
 
 const PAGE_SIZE = 30
 
+const LIST_INFO: Partial<Record<EntryType, { title: string; description: string; newLabel: string }>> = {
+  diary: { title: '일기', description: '일상과 하루의 기록', newLabel: '새 일기' },
+  meditation: { title: '묵상', description: '말씀과 묵상', newLabel: '새 묵상' },
+}
+
 // type이 없으면 홈(모든 유형의 최근 기록), 있으면 해당 유형 목록
 export function EntryListPage({ type }: { type?: EntryType }) {
   const [limit, setLimit] = useState(type ? PAGE_SIZE : 20)
@@ -20,11 +25,12 @@ export function EntryListPage({ type }: { type?: EntryType }) {
   const entries = data ?? []
   const visible = tag ? entries.filter((e) => e.tags.includes(tag)) : entries
   const allTags = [...new Set(entries.flatMap((e) => e.tags))].sort()
+  const info = type && LIST_INFO[type]
   const thumbs = useSignedUrls(visible.flatMap((e) => (e.images[0] ? [thumbPath(e.images[0].storage_path)] : [])))
 
-  const actions = type ? (
+  const actions = info ? (
     <Link to={`/entries/new?type=${type}`} className={primaryClass}>
-      새 일기
+      {info.newLabel}
     </Link>
   ) : (
     <>
@@ -39,7 +45,7 @@ export function EntryListPage({ type }: { type?: EntryType }) {
 
   return (
     <section>
-      <PageHeader title={type ? '일기' : '홈'} description={type ? '일상과 하루의 기록' : '최근 기록'} actions={actions} />
+      <PageHeader title={info ? info.title : '홈'} description={info ? info.description : '최근 기록'} actions={actions} />
 
       {type && allTags.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-1.5">

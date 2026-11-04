@@ -21,6 +21,7 @@ export const router = createHashRouter([
         children: [
           { path: '/', element: <EntryListPage /> },
           { path: '/diary', element: <EntryListPage type="diary" /> },
+          { path: '/meditation', element: <EntryListPage type="meditation" /> },
           { path: '/photos', element: <PhotoGalleryPage /> },
           { path: '/health', element: <HealthPage /> },
           { path: '/health/stats', element: <HealthStatsPage /> },

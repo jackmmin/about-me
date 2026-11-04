@@ -10,12 +10,13 @@ import { thumbPath } from '../lib/images.ts'
 import { useLoad } from '../lib/useLoad.ts'
 import { useSignedUrls } from '../lib/useSignedUrls.ts'
 
-type Filter = 'all' | 'diary' | 'photo' | 'health'
+type Filter = 'all' | 'diary' | 'photo' | 'health' | 'meditation'
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: '전체' },
   { key: 'diary', label: '일기' },
   { key: 'photo', label: '사진' },
   { key: 'health', label: '건강' },
+  { key: 'meditation', label: '묵상' },
 ]
 
 // 검색어 주변 문맥만 잘라서 보여준다.
@@ -63,7 +64,7 @@ export function SearchPage() {
         onChange={(e) => setInput(e.target.value)}
       />
 
-      <div className="my-4 flex gap-1.5" role="radiogroup" aria-label="유형">
+      <div className="my-4 flex flex-wrap gap-1.5" role="radiogroup" aria-label="유형">
         {FILTERS.map((f) => (
           <button
             key={f.key}

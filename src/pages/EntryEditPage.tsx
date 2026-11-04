@@ -3,15 +3,16 @@ import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { useAuth } from '../auth/useAuth.ts'
 import { ImagePicker } from '../components/ImagePicker.tsx'
 import { Markdown } from '../components/Markdown.tsx'
+import { PassagePicker } from '../components/PassagePicker.tsx'
 import { dangerClass, fieldClass, primaryClass, secondaryClass } from '../components/styles.ts'
 import { TagInput } from '../components/TagInput.tsx'
 import { PageHeader, StatusMessage } from '../components/ui.tsx'
 import { deleteEntry, getEntry, listTags, saveEntry, type EntryDraft } from '../lib/entries.ts'
 import { today } from '../lib/format.ts'
-import { ENTRY_TYPE_LABEL, type Entry, type EntryType } from '../lib/types.ts'
+import { ENTRY_TYPE_LABEL, ENTRY_TYPE_PATH, type Entry, type EntryType } from '../lib/types.ts'
 import { useLoad } from '../lib/useLoad.ts'
 
-// /entries/new?type=diary|photo 또는 /entries/:id/edit
+// /entries/new?type=diary|photo|meditation 또는 /entries/:id/edit
 export function EntryEditPage() {
   const { id } = useParams()
   const [params] = useSearchParams()
@@ -20,7 +21,8 @@ export function EntryEditPage() {
 
   if (id && !original) return <StatusMessage loading={loading} error={error} empty="기록을 찾을 수 없습니다." />
 
-  const type: EntryType = original?.type ?? (params.get('type') === 'photo' ? 'photo' : 'diary')
+  const param = params.get('type')
+  const type: EntryType = original?.type ?? (param === 'photo' || param === 'meditation' ? param : 'diary')
   return <EntryForm key={original?.id ?? type} type={type} original={original} tagSuggestions={tagSuggestions ?? []} />
 }
 
@@ -32,6 +34,7 @@ function toDraft(type: EntryType, original: Entry | null): EntryDraft {
     record_date: original?.record_date ?? today(),
     tags: original?.tags ?? [],
     images: (original?.images ?? []).map((image) => ({ kind: 'existing', image, caption: image.caption })),
+    passages: original?.passages ?? [],
   }
 }
 
@@ -60,6 +63,8 @@ function EntryForm({ type, original, tagSuggestions }: { type: EntryType; origin
     e.preventDefault()
     if (type === 'photo' && draft.images.length === 0) return setError('사진을 한 장 이상 추가하세요.')
     if (type === 'diary' && !draft.title.trim() && !draft.content.trim()) return setError('제목이나 내용을 입력하세요.')
+    if (type === 'meditation' && draft.passages.length === 0 && !draft.content.trim())
+      return setError('말씀을 추가하거나 묵상 내용을 입력하세요.')
     if (!session) return
     setError(null)
     setProgress('저장 중…')
@@ -77,7 +82,7 @@ function EntryForm({ type, original, tagSuggestions }: { type: EntryType; origin
     setProgress('삭제 중…')
     try {
       await deleteEntry(original)
-      navigate(type === 'diary' ? '/diary' : '/photos', { replace: true })
+      navigate(ENTRY_TYPE_PATH[type], { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
       setProgress(null)
@@ -98,12 +103,13 @@ function EntryForm({ type, original, tagSuggestions }: { type: EntryType; origin
         />
         <input
           className={fieldClass}
-          placeholder={type === 'photo' ? '앨범 제목' : '제목'}
+          placeholder={type === 'photo' ? '앨범 제목' : type === 'meditation' ? '제목 (선택)' : '제목'}
           value={draft.title}
           onChange={(e) => set('title', e.target.value)}
         />
 
         {type === 'photo' && <ImagePicker value={draft.images} onChange={(v) => set('images', v)} />}
+        {type === 'meditation' && <PassagePicker value={draft.passages} onChange={(v) => set('passages', v)} />}
 
         <div>
           <div className="mb-1.5 flex gap-3 text-sm">
@@ -121,7 +127,13 @@ function EntryForm({ type, original, tagSuggestions }: { type: EntryType; origin
           ) : (
             <textarea
               className={`${fieldClass} min-h-48 resize-y leading-relaxed`}
-              placeholder={type === 'photo' ? '앨범 설명 (마크다운 지원, 선택)' : '오늘의 기록 (마크다운 지원)'}
+              placeholder={
+                type === 'photo'
+                  ? '앨범 설명 (마크다운 지원, 선택)'
+                  : type === 'meditation'
+                    ? '묵상 내용 (마크다운 지원)'
+                    : '오늘의 기록 (마크다운 지원)'
+              }
               value={draft.content}
               onChange={(e) => set('content', e.target.value)}
             />
