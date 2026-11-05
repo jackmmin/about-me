@@ -1,19 +1,27 @@
 import { removeImages, uploadImage } from './images.ts'
 import { supabase } from './supabase.ts'
 import type { Entry, EntryImage, EntryType, Passage } from './types.ts'
+import { clearLoadCache } from './useLoad.ts'
 
-const SELECT = 'id, type, title, content, record_date, created_at, updated_at, meta, entry_images(*), entry_tags(tags(name))'
+const RELATIONS = 'entry_images(*), entry_tags(tags(name))'
+const SELECT = `id, type, title, content, record_date, created_at, updated_at, meta, ${RELATIONS}`
+// 목록 카드용: 본문은 미리보기에 쓸 앞부분만 받는다 (DB 함수 content_preview, 009 마이그레이션)
+const LIST_SELECT = `id, type, title, content:content_preview, record_date, created_at, updated_at, meta, ${RELATIONS}`
+// 사진 갤러리용: 사진이 있는 기록만, 본문·태그 없이
+const PHOTO_SELECT = 'id, type, title, record_date, created_at, updated_at, meta, entry_images!inner(*)'
 
-interface EntryRow extends Omit<Entry, 'images' | 'tags' | 'passages'> {
+interface EntryRow extends Omit<Entry, 'images' | 'tags' | 'passages' | 'content'> {
+  content?: string
   meta: { passages?: Passage[]; cover?: string } | null
   entry_images: EntryImage[]
-  entry_tags: { tags: { name: string } | null }[]
+  entry_tags?: { tags: { name: string } | null }[]
 }
 
 function toEntry(row: EntryRow): Entry {
-  const { meta, entry_images, entry_tags, ...rest } = row
+  const { meta, entry_images, entry_tags = [], content = '', ...rest } = row
   return {
     ...rest,
+    content,
     passages: meta?.passages ?? [],
     coverId: meta?.cover ?? null,
     images: [...entry_images].sort((a, b) => a.sort_order - b.sort_order),
@@ -21,6 +29,7 @@ function toEntry(row: EntryRow): Entry {
   }
 }
 
+// 목록용 조회라 content에는 본문 앞부분만 들어 있다. 전체 본문은 getEntry로.
 export async function listEntries({
   type,
   from,
@@ -29,13 +38,25 @@ export async function listEntries({
 }: { type?: EntryType; from?: string; limit?: number; offset?: number } = {}) {
   let query = supabase
     .from('entries')
-    .select(SELECT)
+    .select(LIST_SELECT)
     .order('record_date', { ascending: false })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
   if (type) query = query.eq('type', type)
   if (from) query = query.gte('record_date', from)
   const { data, error } = await query
+  if (error) throw error
+  return (data as unknown as EntryRow[]).map(toEntry)
+}
+
+// 사진이 한 장 이상 있는 기록 (최신순). content·tags는 비어 있다.
+export async function listPhotoEntries(limit: number) {
+  const { data, error } = await supabase
+    .from('entries')
+    .select(PHOTO_SELECT)
+    .order('record_date', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(limit)
   if (error) throw error
   return (data as unknown as EntryRow[]).map(toEntry)
 }
@@ -90,6 +111,7 @@ export async function saveEntry(
     : await supabase.from('entries').insert(fields).select('id').single()
   if (error) throw error
   const entryId = data.id as string
+  clearLoadCache()
 
   await syncTags(entryId, draft.tags)
 
@@ -154,6 +176,7 @@ export async function syncTags(entryId: string, names: string[]) {
 export async function deleteEntry(entry: Entry) {
   const { error } = await supabase.from('entries').delete().eq('id', entry.id)
   if (error) throw error
+  clearLoadCache()
   await removeImages(entry.images.map((img) => img.storage_path))
 }
 
@@ -162,7 +185,7 @@ export function sanitizeQuery(q: string) {
   return q.replace(/[,()%*\\:"]/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-// 제목·본문·태그에서 검색 (최근 기록 순)
+// 제목·본문·태그에서 검색 (최근 기록 순). 결과의 content에는 본문 앞부분만 들어 있다.
 export async function searchEntries(q: string, limit = 50) {
   const term = sanitizeQuery(q)
   if (!term) return []
@@ -177,7 +200,7 @@ export async function searchEntries(q: string, limit = 50) {
 
   const { data, error } = await supabase
     .from('entries')
-    .select(SELECT)
+    .select(LIST_SELECT)
     .or(filters.join(','))
     .order('record_date', { ascending: false })
     .order('created_at', { ascending: false })

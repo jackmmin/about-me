@@ -20,7 +20,7 @@ const percent = (v: number) => `${Math.round(v * 100)}%`
 export function FoodAnalysisPage() {
   const [days, setDays] = useState(90)
   const from = days ? shiftDate(today(), -(days - 1)) : null
-  const { data: meals, error, loading } = useLoad(() => listMeals(from), [from])
+  const { data: meals, error, loading } = useLoad(() => listMeals(from), [from], `foods:${from}`)
 
   const result = meals ? analyzeFoods(meals) : null
   const enough = (result?.foods ?? []).filter((f) => f.count >= MIN_COUNT).sort((a, b) => b.rate - a.rate || b.count - a.count)

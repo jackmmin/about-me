@@ -52,9 +52,15 @@ export function HealthPage() {
 
   // 불러온 날짜를 같이 들고 있어서, 날짜를 바꾼 직후 이전 날짜 데이터로 폼이 그려지지 않게 한다.
   const day = useLoad(async () => ({ date, ...(await getHealthDay(date)) }), [date])
-  const recent = useLoad(() => listHealthRange(shiftDate(today(), -6), today()), [day.data])
-  const { data: kinds } = useLoad(listExerciseKinds, [day.data])
-  const { data: foods } = useLoad(listFoodNames, [day.data])
+  // 최근 7일 표시·자동완성 목록은 날짜와 무관하므로 처음과 저장했을 때만 다시 불러온다.
+  const [saved, setSaved] = useState(0)
+  const onChange = () => {
+    day.reload()
+    setSaved((v) => v + 1)
+  }
+  const recent = useLoad(() => listHealthRange(shiftDate(today(), -6), today()), [saved])
+  const { data: kinds } = useLoad(listExerciseKinds, [saved])
+  const { data: foods } = useLoad(listFoodNames, [saved])
 
   const recorded = new Set([...(recent.data?.exercises ?? []), ...(recent.data?.meals ?? [])].map((r) => r.log_date))
   const week = Array.from({ length: 7 }, (_, i) => shiftDate(today(), i - 6))
@@ -146,7 +152,7 @@ export function HealthPage() {
                     date={date}
                     snacks={loaded.meals.filter((x) => x.meal === 'snack')}
                     foodSuggestions={foods ?? []}
-                    onChange={day.reload}
+                    onChange={onChange}
                   />
                 ) : (
                   <MealCard
@@ -155,7 +161,7 @@ export function HealthPage() {
                     label={m.label}
                     initial={loaded.meals.find((x) => x.meal === m.key)}
                     foodSuggestions={foods ?? []}
-                    onSaved={day.reload}
+                    onSaved={onChange}
                   />
                 )}
               </div>
@@ -163,7 +169,7 @@ export function HealthPage() {
           </div>
 
           <div role="tabpanel" hidden={tab !== 'exercise'}>
-            <ExerciseList date={date} exercises={loaded.exercises} kinds={kinds ?? []} onChange={day.reload} />
+            <ExerciseList date={date} exercises={loaded.exercises} kinds={kinds ?? []} onChange={onChange} />
           </div>
         </div>
       )}

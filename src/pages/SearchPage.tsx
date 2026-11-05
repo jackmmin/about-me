@@ -41,8 +41,13 @@ export function SearchPage() {
   }, [input, setParams])
 
   const { data, error, loading } = useLoad(
-    async () => (term ? { entries: await searchEntries(term), health: await searchHealth(term) } : null),
+    async () => {
+      if (!term) return null
+      const [entries, health] = await Promise.all([searchEntries(term), searchHealth(term)])
+      return { entries, health }
+    },
     [term],
+    `search:${term}`,
   )
 
   const entries = (data?.entries ?? []).filter((e) => filter === 'all' || filter === e.type)

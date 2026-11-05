@@ -22,7 +22,7 @@ type ListType = Exclude<EntryType, 'photo'> // 사진은 PhotoGalleryPage
 export function EntryListPage({ type }: { type: ListType }) {
   const [limit, setLimit] = useState(PAGE_SIZE)
   const [tag, setTag] = useState<string | null>(null)
-  const { data, error, loading } = useLoad(() => listEntries({ type, limit }), [type, limit])
+  const { data, error, loading } = useLoad(() => listEntries({ type, limit }), [type, limit], `entries:${type}:${limit}`)
 
   const entries = data ?? []
   const visible = tag ? entries.filter((e) => e.tags.includes(tag)) : entries

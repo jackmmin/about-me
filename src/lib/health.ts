@@ -1,4 +1,5 @@
 import { supabase } from './supabase.ts'
+import { clearLoadCache } from './useLoad.ts'
 
 export interface ExerciseLog {
   id: string
@@ -79,12 +80,14 @@ export async function saveMeal({ id, ...meal }: Omit<MealLog, 'id'> & { id: stri
     ? await supabase.from('meal_logs').update(meal).eq('id', id).select('id').single()
     : await supabase.from('meal_logs').insert(meal).select('id').single()
   if (error) throw error
+  clearLoadCache()
   return data.id as string
 }
 
 export async function deleteMeal(id: string) {
   const { error } = await supabase.from('meal_logs').delete().eq('id', id)
   if (error) throw error
+  clearLoadCache()
 }
 
 // 음식 자동완성용: 최근 끼니에서 자주 먹은 순
@@ -107,11 +110,13 @@ export async function listMeals(from: string | null) {
 export async function addExercise(exercise: Omit<ExerciseLog, 'id'>) {
   const { error } = await supabase.from('exercise_logs').insert(exercise)
   if (error) throw error
+  clearLoadCache()
 }
 
 export async function deleteExercise(id: string) {
   const { error } = await supabase.from('exercise_logs').delete().eq('id', id)
   if (error) throw error
+  clearLoadCache()
 }
 
 export async function listExerciseKinds() {

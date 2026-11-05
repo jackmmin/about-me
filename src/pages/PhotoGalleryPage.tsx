@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { primaryClass, secondaryClass } from '../components/styles.ts'
 import { PageHeader, StatusMessage } from '../components/ui.tsx'
-import { listEntries } from '../lib/entries.ts'
+import { listPhotoEntries } from '../lib/entries.ts'
 import { formatMonth } from '../lib/format.ts'
 import { thumbPath } from '../lib/images.ts'
 import type { Entry, EntryImage } from '../lib/types.ts'
@@ -19,7 +19,7 @@ interface Photo {
 // 앨범과 일기에 붙은 사진을 모두 모아 월별 그리드로 보여준다.
 export function PhotoGalleryPage() {
   const [limit, setLimit] = useState(PAGE_SIZE)
-  const { data, error, loading } = useLoad(() => listEntries({ limit }), [limit])
+  const { data, error, loading } = useLoad(() => listPhotoEntries(limit), [limit], `photos:${limit}`)
 
   const entries = data ?? []
   const photos: Photo[] = entries.flatMap((entry) => entry.images.map((image) => ({ image, entry })))

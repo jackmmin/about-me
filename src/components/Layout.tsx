@@ -1,6 +1,6 @@
 import { Link, NavLink, Outlet } from 'react-router'
 import { signOut } from '../auth/useAuth.ts'
-import { fetchUsage, usageWarnings } from '../lib/usage.ts'
+import { fetchUsageCached, usageWarnings } from '../lib/usage.ts'
 import { useLoad } from '../lib/useLoad.ts'
 import { NAV_SECTIONS } from '../sections.ts'
 import { SectionIcon } from './SectionIcon.tsx'
@@ -22,9 +22,9 @@ function BackupIcon({ className }: { className?: string }) {
   )
 }
 
-// 무료 플랜 용량이 80%를 넘으면 모든 화면 위에 띄운다 (조회 실패 시에는 아무것도 안 보임)
+// 무료 플랜 용량이 80%를 넘으면 모든 화면 위에 띄운다 (조회 실패 시에는 아무것도 안 보임, 결과는 6시간 캐시)
 function UsageBanner() {
-  const usage = useLoad(fetchUsage, [])
+  const usage = useLoad(fetchUsageCached, [])
   const warnings = usage.data ? usageWarnings(usage.data) : []
   if (warnings.length === 0) return null
   return (

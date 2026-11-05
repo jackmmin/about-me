@@ -1,6 +1,7 @@
 import { syncTags } from '../entries.ts'
 import { imageExt, imagePath, removeImages, uploadBackupImage } from '../images.ts'
 import { supabase } from '../supabase.ts'
+import { clearLoadCache } from '../useLoad.ts'
 import { existingIds, fetchAll } from './db.ts'
 import {
   BACKUP_FORMAT,
@@ -151,6 +152,7 @@ export async function restoreBackup(
       }
     }
   }
+  clearLoadCache()
   return results
 }
 

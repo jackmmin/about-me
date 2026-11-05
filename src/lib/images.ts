@@ -146,10 +146,38 @@ export async function removeImages(paths: string[]) {
     if (error) throw error
   }
   for (const p of all) urlCache.delete(p)
+  saveUrlCache()
 }
 
 // 서명 URL은 만료 전까지 재사용한다 (같은 사진을 매번 새 URL로 받으면 브라우저 캐시가 안 먹는다).
-const urlCache = new Map<string, { url: string; expiresAt: number }>()
+// 앱을 다시 켜도 이어 쓰도록 localStorage에 보관한다 (최대 1시간짜리 본인 사진 주소뿐).
+type CachedUrl = { url: string; expiresAt: number }
+const URL_CACHE_KEY = 'signed-url-cache'
+const urlCache = loadUrlCache()
+
+function loadUrlCache() {
+  const now = Date.now()
+  try {
+    const saved = JSON.parse(localStorage.getItem(URL_CACHE_KEY) ?? '[]') as [string, CachedUrl][]
+    return new Map(saved.filter(([, v]) => v.expiresAt > now))
+  } catch {
+    return new Map<string, CachedUrl>()
+  }
+}
+
+function saveUrlCache() {
+  const now = Date.now()
+  try {
+    localStorage.setItem(URL_CACHE_KEY, JSON.stringify([...urlCache].filter(([, v]) => v.expiresAt > now)))
+  } catch {
+    // 저장 공간이 부족해도 메모리 캐시는 그대로 쓴다
+  }
+}
+
+export function clearUrlCache() {
+  urlCache.clear()
+  localStorage.removeItem(URL_CACHE_KEY)
+}
 
 export async function signedUrls(paths: string[]): Promise<Record<string, string>> {
   const now = Date.now()
@@ -166,17 +194,26 @@ export async function signedUrls(paths: string[]): Promise<Record<string, string
     urlCache.set(path, { url, expiresAt })
     result[path] = url
   }
+  if (missing.length === 0) return result
+  // R2와 예전 Storage 주소는 동시에 발급받는다
   const r2 = missing.filter(isR2)
   const legacy = missing.filter((p) => !isR2(p))
-  if (r2.length > 0) {
-    const urls: Record<string, string> = Object.assign({}, ...(await postKeys<{ urls: Record<string, string> }>('/sign', r2.map(r2Key))).map((r) => r.urls))
-    for (const p of r2) if (urls[r2Key(p)]) keep(p, urls[r2Key(p)])
-  }
-  if (legacy.length > 0) {
-    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(legacy, SIGNED_URL_TTL)
-    if (error) throw error
-    for (const item of data) if (item.path && item.signedUrl) keep(item.path, item.signedUrl)
-  }
+  await Promise.all([
+    r2.length > 0 &&
+      postKeys<{ urls: Record<string, string> }>('/sign', r2.map(r2Key)).then((res) => {
+        const urls: Record<string, string> = Object.assign({}, ...res.map((r) => r.urls))
+        for (const p of r2) if (urls[r2Key(p)]) keep(p, urls[r2Key(p)])
+      }),
+    legacy.length > 0 &&
+      supabase.storage
+        .from(BUCKET)
+        .createSignedUrls(legacy, SIGNED_URL_TTL)
+        .then(({ data, error }) => {
+          if (error) throw error
+          for (const item of data) if (item.path && item.signedUrl) keep(item.path, item.signedUrl)
+        }),
+  ])
+  saveUrlCache()
   return result
 }
 

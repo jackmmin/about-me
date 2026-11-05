@@ -50,7 +50,7 @@ export function HomePage() {
   const { data, error, loading } = useLoad(async () => {
     const [entries, health] = await Promise.all([listEntries({ from, limit: 1000 }), listHealthRange(from, today())])
     return { entries, ...health }
-  }, [from])
+  }, [from], `home:${from}`)
 
   const showHealth = filter === 'all' || filter === 'health'
   const timeline = groupByDate(

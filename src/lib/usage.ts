@@ -24,14 +24,35 @@ interface UsageRow {
   db_my_bytes: number
 }
 
+const CACHE_KEY = 'usage-cache'
+const CACHE_TTL = 6 * 60 * 60 * 1000 // 6시간
+
 export async function fetchUsage(): Promise<Usage> {
   const { data, error } = await supabase.rpc('storage_usage').single<UsageRow>()
   if (error) throw error
-  return {
+  const usage = {
     storage: { total: data.storage_bytes, mine: data.storage_my_bytes },
     r2: { total: data.r2_bytes, mine: data.r2_my_bytes },
     db: { total: data.db_bytes, rows: data.db_rows_bytes, mine: data.db_my_bytes },
   }
+  localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), usage }))
+  return usage
+}
+
+// 상단 경고 배너용. 집계가 무겁고(모든 사용자의 파일·행을 훑는다) 사용량은 천천히 변하므로
+// 6시간 안에 조회한 결과가 있으면 그대로 쓴다. 백업 화면은 fetchUsage로 매번 새로 조회한다.
+export async function fetchUsageCached(): Promise<Usage> {
+  try {
+    const cached = JSON.parse(localStorage.getItem(CACHE_KEY) ?? 'null') as { at: number; usage: Usage } | null
+    if (cached && Date.now() - cached.at < CACHE_TTL) return cached.usage
+  } catch {
+    // 깨진 값이면 새로 조회
+  }
+  return fetchUsage()
+}
+
+export function clearUsageCache() {
+  localStorage.removeItem(CACHE_KEY)
 }
 
 export function formatBytes(bytes: number) {

@@ -11,7 +11,7 @@ import { useSignedUrls } from '../lib/useSignedUrls.ts'
 
 export function EntryDetailPage() {
   const { id = '' } = useParams()
-  const { data: entry, error, loading } = useLoad(() => getEntry(id), [id])
+  const { data: entry, error, loading } = useLoad(() => getEntry(id), [id], `entry:${id}`)
   const urls = useSignedUrls(entry?.images.map((img) => img.storage_path) ?? [])
 
   if (!entry) return <StatusMessage loading={loading} error={error} empty="기록을 찾을 수 없습니다." />

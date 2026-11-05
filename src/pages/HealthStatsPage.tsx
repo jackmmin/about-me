@@ -40,7 +40,7 @@ export function HealthStatsPage() {
   const start = shiftDate(end, -(days - 1))
   const prevStart = shiftDate(start, -days)
   // 직전 기간과 비교하기 위해 두 기간을 한 번에 불러온다.
-  const { data, error, loading } = useLoad(() => listHealthRange(prevStart, end), [days, end])
+  const { data, error, loading } = useLoad(() => listHealthRange(prevStart, end), [days, end], `stats:${days}:${end}`)
 
   const rows = data ? buildRows(dateRange(start, end), data.exercises, data.meals) : []
   const prevRows = data ? buildRows(dateRange(prevStart, shiftDate(start, -1)), data.exercises, data.meals) : []
