@@ -1,4 +1,5 @@
 import { useId, useRef, useState } from 'react'
+import { keepInView } from '../lib/keepInView.ts'
 import { fieldClass } from './styles.ts'
 
 // Enter 또는 쉼표로 항목(태그·음식 등) 추가. 한글 입력 조합 중의 Enter는 무시한다.
@@ -38,15 +39,6 @@ export function TagInput({
     setActive(-1)
   }
 
-  // 키패드가 올라와 화면이 줄어들면 입력 칸과 목록이 보이도록 가운데로 스크롤한다
-  function keepInView() {
-    const vv = window.visualViewport
-    if (!vv) return
-    const onResize = () => inputRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    vv.addEventListener('resize', onResize)
-    setTimeout(() => vv.removeEventListener('resize', onResize), 1000)
-  }
-
   return (
     <div>
       {value.length > 0 && (
@@ -78,7 +70,7 @@ export function TagInput({
           value={text}
           onFocus={() => {
             setOpen(true)
-            keepInView()
+            keepInView(inputRef.current)
           }}
           onChange={(e) => {
             setOpen(true)

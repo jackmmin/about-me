@@ -1,10 +1,8 @@
 import { useState } from 'react'
 import { BIBLE_BOOKS, formatPassage, getBook } from '../lib/bible.ts'
 import type { Passage } from '../lib/types.ts'
+import { BookPicker } from './BookPicker.tsx'
 import { fieldClass, secondaryClass } from './styles.ts'
-
-const OLD = BIBLE_BOOKS.filter((b) => b.testament === 'old')
-const NEW = BIBLE_BOOKS.filter((b) => b.testament === 'new')
 
 const chipClass = (active: boolean) =>
   `rounded-full px-2.5 py-1 text-xs ${
@@ -100,32 +98,16 @@ function PassageEditor({
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-neutral-300 p-3 dark:border-neutral-700">
       <div className="flex gap-2">
-        <select
-          className={`${fieldClass} flex-1`}
-          aria-label="책"
+        <BookPicker
           value={book.id}
-          onChange={(e) => {
+          onChange={(id) => {
             setAnchor(null)
-            onChange({ book: e.target.value, chapter: 1, verses: [] })
+            onChange({ book: id, chapter: 1, verses: [] })
           }}
-        >
-          <optgroup label="구약">
-            {OLD.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </optgroup>
-          <optgroup label="신약">
-            {NEW.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </optgroup>
-        </select>
+        />
+        {/* fieldClass의 w-full이 w-28을 덮어쓰므로 max-w로 폭을 고정한다 */}
         <select
-          className={`${fieldClass} w-28`}
+          className={`${fieldClass} max-w-28 shrink-0`}
           aria-label="장"
           value={value.chapter}
           onChange={(e) => {

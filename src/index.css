@@ -8,6 +8,13 @@ html.dark {
   color-scheme: dark;
 }
 
+/* PC 브라우저는 펼친 <select> 목록을 투명 배경 대신 흰 배경으로 그려 다크 모드 글자가 안 보인다 */
+html.dark select option,
+html.dark select optgroup {
+  background-color: var(--color-neutral-950);
+  color: var(--color-neutral-100);
+}
+
 :root {
   font-family:
     Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui,
