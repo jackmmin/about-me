@@ -49,17 +49,41 @@ function UsageSection() {
       {usage.error && <p className="text-sm text-red-600 dark:text-red-400">사용량 확인 실패: {usage.error}</p>}
       {u && (
         <>
-          <UsageBar label="사진 · R2 (전체 사용자)" used={u.r2Bytes} limit={R2_LIMIT} />
-          {u.storageBytes > 0 && <UsageBar label="예전 사진 · Supabase (전체 사용자)" used={u.storageBytes} limit={STORAGE_LIMIT} />}
-          <UsageBar label="데이터베이스 (기록)" used={u.dbBytes} limit={DB_LIMIT} />
-          <p className="text-xs text-neutral-400">그중 내 사진 {formatBytes(u.myBytes)}</p>
+          <UsageBar label="사진 · R2" limit={R2_LIMIT} parts={split(u.r2.total, u.r2.mine)} />
+          {u.storage.total > 0 && (
+            <UsageBar label="예전 사진 · Supabase" limit={STORAGE_LIMIT} parts={split(u.storage.total, u.storage.mine)} />
+          )}
+          <UsageBar
+            label="데이터베이스 (기록)"
+            limit={DB_LIMIT}
+            parts={[...split(u.db.rows, u.db.mine), { kind: 'common', bytes: Math.max(0, u.db.total - u.db.rows) }]}
+          />
+          <p className="text-xs text-neutral-400">데이터베이스의 공통 공간은 시스템·인덱스처럼 사용자별로 나눌 수 없는 부분입니다.</p>
         </>
       )}
     </Card>
   )
 }
 
-function UsageBar({ label, used, limit, note }: { label: string; used: number; limit: number; note?: string }) {
+type UsagePart = { kind: 'mine' | 'others' | 'common'; bytes: number }
+
+const split = (total: number, mine: number): UsagePart[] => [
+  { kind: 'mine', bytes: mine },
+  { kind: 'others', bytes: Math.max(0, total - mine) },
+]
+
+const PART_LABEL: Record<UsagePart['kind'], string> = { mine: '나', others: '다른 사용자', common: '공통' }
+
+// 한도에 가까우면 붉은 계열로 바꾼다
+function partColor(kind: UsagePart['kind'], warn: boolean) {
+  if (kind === 'mine') return warn ? 'bg-red-600' : 'bg-neutral-900 dark:bg-white'
+  if (kind === 'others') return warn ? 'bg-red-400' : 'bg-neutral-500 dark:bg-neutral-400'
+  return warn ? 'bg-red-200 dark:bg-red-900' : 'bg-neutral-300 dark:bg-neutral-600'
+}
+
+// 막대 전체 길이 = 무료 한도, 그 안에 나 / 다른 사용자 (/ 공통)을 이어서 칠한다
+function UsageBar({ label, limit, parts }: { label: string; limit: number; parts: UsagePart[] }) {
+  const used = parts.reduce((n, p) => n + p.bytes, 0)
   const ratio = Math.min(1, used / limit)
   const warn = ratio >= WARN_RATIO
   return (
@@ -70,10 +94,19 @@ function UsageBar({ label, used, limit, note }: { label: string; used: number; l
           {formatBytes(used)} / {formatBytes(limit)} ({Math.round(ratio * 100)}%)
         </span>
       </div>
-      <div className="mt-1 h-2 overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
-        <div className={`h-full rounded-full ${warn ? 'bg-red-500' : 'bg-neutral-900 dark:bg-white'}`} style={{ width: `${ratio * 100}%` }} />
+      <div className="mt-1 flex h-2 overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
+        {parts.map((p) => (
+          <div key={p.kind} className={`h-full ${partColor(p.kind, warn)}`} style={{ width: `${Math.min(1, p.bytes / limit) * 100}%` }} />
+        ))}
       </div>
-      {note && <p className="mt-1 text-xs text-neutral-400">{note}</p>}
+      <ul className="mt-1 flex flex-wrap gap-x-3 text-xs text-neutral-500">
+        {parts.map((p) => (
+          <li key={p.kind} className="flex items-center gap-1">
+            <span className={`inline-block size-2 rounded-full ${partColor(p.kind, warn)}`} />
+            {PART_LABEL[p.kind]} {formatBytes(p.bytes)}
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

@@ -4,21 +4,34 @@ import { supabase } from './supabase.ts'
 export const STORAGE_LIMIT = 1024 ** 3 // Supabase Storage 1GB (예전 사진)
 export const R2_LIMIT = 10 * 1024 ** 3 // Cloudflare R2 10GB (새 사진)
 export const DB_LIMIT = 500 * 1024 ** 2 // 데이터베이스 500MB
-export const WARN_RATIO = 0.8 // 이 비율부터 경고
+export const WARN_RATIO = 0.8 // 이 비율부터 경고 (모든 사용자 합계 기준)
 
+// total: 모든 사용자 합계, mine: 그중 내 몫
 export interface Usage {
-  myBytes: number // 내 사진 (두 저장소 합계)
-  storageBytes: number // Supabase Storage, 모든 사용자 합계
-  r2Bytes: number // R2, 모든 사용자 합계
-  dbBytes: number
+  storage: { total: number; mine: number }
+  r2: { total: number; mine: number }
+  // 데이터베이스는 사용자별로 정확히 나눌 수 없어서 행 데이터(rows)만 나누고 나머지는 공통(시스템·인덱스)
+  db: { total: number; rows: number; mine: number }
+}
+
+interface UsageRow {
+  storage_bytes: number
+  storage_my_bytes: number
+  r2_bytes: number
+  r2_my_bytes: number
+  db_bytes: number
+  db_rows_bytes: number
+  db_my_bytes: number
 }
 
 export async function fetchUsage(): Promise<Usage> {
-  const { data, error } = await supabase
-    .rpc('storage_usage')
-    .single<{ my_bytes: number; storage_bytes: number; r2_bytes: number; db_bytes: number }>()
+  const { data, error } = await supabase.rpc('storage_usage').single<UsageRow>()
   if (error) throw error
-  return { myBytes: data.my_bytes, storageBytes: data.storage_bytes, r2Bytes: data.r2_bytes, dbBytes: data.db_bytes }
+  return {
+    storage: { total: data.storage_bytes, mine: data.storage_my_bytes },
+    r2: { total: data.r2_bytes, mine: data.r2_my_bytes },
+    db: { total: data.db_bytes, rows: data.db_rows_bytes, mine: data.db_my_bytes },
+  }
 }
 
 export function formatBytes(bytes: number) {
@@ -34,8 +47,8 @@ export function usageWarnings(u: Usage) {
     if (used >= limit * WARN_RATIO)
       items.push(`${label} ${Math.round((used / limit) * 100)}% 사용 중 (${formatBytes(used)} / ${formatBytes(limit)})`)
   }
-  check('사진 저장 공간(R2)', u.r2Bytes, R2_LIMIT)
-  check('예전 사진 저장 공간(Supabase)', u.storageBytes, STORAGE_LIMIT)
-  check('데이터베이스', u.dbBytes, DB_LIMIT)
+  check('사진 저장 공간(R2)', u.r2.total, R2_LIMIT)
+  check('예전 사진 저장 공간(Supabase)', u.storage.total, STORAGE_LIMIT)
+  check('데이터베이스', u.db.total, DB_LIMIT)
   return items
 }
