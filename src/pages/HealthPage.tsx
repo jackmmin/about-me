@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { ExerciseList } from '../components/health/ExerciseList.tsx'
+import { HealthCalendar } from '../components/health/HealthCalendar.tsx'
 import { MealCard } from '../components/health/MealCard.tsx'
 import { SnackList } from '../components/health/SnackList.tsx'
 import { fieldClass, secondaryClass } from '../components/styles.ts'
@@ -13,6 +14,7 @@ import { useLoad } from '../lib/useLoad.ts'
 const WEEKDAY = new Intl.DateTimeFormat('ko-KR', { weekday: 'narrow', timeZone: 'UTC' })
 
 type Tab = 'meals' | 'exercise'
+type View = 'day' | 'calendar'
 
 // 오늘이면 지금 시각에 맞는 끼니, 지난 날짜면 아침부터
 function defaultMeal(date: string): MealKey {
@@ -23,6 +25,7 @@ function defaultMeal(date: string): MealKey {
 
 export function HealthPage() {
   // 날짜·탭·끼니를 주소(?date=&tab=&meal=)에 남겨 새로고침·뒤로 가기·검색 결과 이동에도 유지한다.
+  // 달력 보기는 ?view=calendar&month=YYYY-MM
   const [params, setParams] = useSearchParams()
   const [date, setDateState] = useState(() => {
     const d = params.get('date')
@@ -50,6 +53,36 @@ export function HealthPage() {
     updateParams({ date: d })
   }
 
+  const view: View = params.get('view') === 'calendar' ? 'calendar' : 'day'
+  const monthParam = params.get('month') ?? ''
+  const month = /^\d{4}-\d{2}$/.test(monthParam) && monthParam <= today().slice(0, 7) ? monthParam : date.slice(0, 7)
+  const showCalendar = (m: string) =>
+    setParams(
+      (prev) => {
+        const p = new URLSearchParams(prev)
+        p.set('view', 'calendar')
+        p.set('month', m)
+        return p
+      },
+      { replace: true },
+    )
+  // 달력에서 날짜를 고르면 그날 기록 화면으로
+  const pickDate = (d: string) => {
+    setDateState(d)
+    setParams(
+      (prev) => {
+        const p = new URLSearchParams(prev)
+        p.delete('view')
+        p.delete('month')
+        if (d === today()) p.delete('date')
+        else p.set('date', d)
+        p.delete('meal') // 그날에 맞는 기본 끼니부터
+        return p
+      },
+      { replace: true },
+    )
+  }
+
   // 불러온 날짜를 같이 들고 있어서, 날짜를 바꾼 직후 이전 날짜 데이터로 폼이 그려지지 않게 한다.
   const day = useLoad(async () => ({ date, ...(await getHealthDay(date)) }), [date])
   // 최근 7일 표시·자동완성 목록은 날짜와 무관하므로 처음과 저장했을 때만 다시 불러온다.
@@ -66,8 +99,8 @@ export function HealthPage() {
   const week = Array.from({ length: 7 }, (_, i) => shiftDate(today(), i - 6))
   const loaded = day.data?.date === date ? day.data : null
 
-  return (
-    <section>
+  const header = (
+    <>
       <PageHeader
         title="건강"
         description="식단과 운동 기록"
@@ -82,6 +115,33 @@ export function HealthPage() {
           </>
         }
       />
+      <div className="mb-4">
+        <Tabs<View>
+          label="보기 방식"
+          variant="secondary"
+          value={view}
+          onChange={(v) => (v === 'calendar' ? showCalendar(date.slice(0, 7)) : pickDate(date))}
+          items={[
+            { key: 'day', label: '일별' },
+            { key: 'calendar', label: '달력' },
+          ]}
+        />
+      </div>
+    </>
+  )
+
+  if (view === 'calendar') {
+    return (
+      <section>
+        {header}
+        <HealthCalendar key={month} month={month} onMonth={showCalendar} onPick={pickDate} />
+      </section>
+    )
+  }
+
+  return (
+    <section>
+      {header}
 
       {/* 최근 7일: 기록한 날은 점으로 표시, 누르면 그날로 이동 */}
       <div className="mb-4 grid grid-cols-7 gap-1 text-center">

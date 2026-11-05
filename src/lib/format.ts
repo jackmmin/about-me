@@ -37,3 +37,17 @@ export function excerpt(markdown: string, length = 120) {
 export function shortDate(date: string) {
   return `${Number(date.slice(5, 7))}/${Number(date.slice(8))}`
 }
+
+// month: YYYY-MM
+export function shiftMonth(month: string, n: number) {
+  const d = new Date(`${month}-01T00:00:00Z`)
+  d.setUTCMonth(d.getUTCMonth() + n)
+  return d.toISOString().slice(0, 7)
+}
+
+// 그달의 날짜들 (YYYY-MM-DD)
+export function monthDays(month: string) {
+  const d = new Date(`${shiftMonth(month, 1)}-01T00:00:00Z`)
+  d.setUTCDate(0)
+  return Array.from({ length: d.getUTCDate() }, (_, i) => `${month}-${String(i + 1).padStart(2, '0')}`)
+}
