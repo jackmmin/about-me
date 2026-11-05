@@ -12,7 +12,7 @@ import { today } from '../lib/format.ts'
 import { ENTRY_TYPE_LABEL, ENTRY_TYPE_PATH, type Entry, type EntryType } from '../lib/types.ts'
 import { useLoad } from '../lib/useLoad.ts'
 
-// /entries/new?type=diary|photo|meditation 또는 /entries/:id/edit
+// /entries/new?type=diary|photo|meditation[&date=YYYY-MM-DD] 또는 /entries/:id/edit
 export function EntryEditPage() {
   const { id } = useParams()
   const [params] = useSearchParams()
@@ -23,15 +23,25 @@ export function EntryEditPage() {
 
   const param = params.get('type')
   const type: EntryType = original?.type ?? (param === 'photo' || param === 'meditation' ? param : 'diary')
-  return <EntryForm key={original?.id ?? type} type={type} original={original} tagSuggestions={tagSuggestions ?? []} />
+  const date = params.get('date')
+  const initialDate = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : today()
+  return (
+    <EntryForm
+      key={original?.id ?? type}
+      type={type}
+      original={original}
+      initialDate={initialDate}
+      tagSuggestions={tagSuggestions ?? []}
+    />
+  )
 }
 
-function toDraft(type: EntryType, original: Entry | null): EntryDraft {
+function toDraft(type: EntryType, original: Entry | null, initialDate: string): EntryDraft {
   return {
     type,
     title: original?.title ?? '',
     content: original?.content ?? '',
-    record_date: original?.record_date ?? today(),
+    record_date: original?.record_date ?? initialDate,
     tags: original?.tags ?? [],
     images: (original?.images ?? []).map((image) => ({ kind: 'existing', image, caption: image.caption })),
     passages: original?.passages ?? [],
@@ -39,16 +49,26 @@ function toDraft(type: EntryType, original: Entry | null): EntryDraft {
   }
 }
 
-const DIARY_MAX_IMAGES = 5
-const DIARY_MAX_IMAGE_MB = 5
+const DIARY_MAX_IMAGES = 10
+const DIARY_MAX_IMAGE_MB = 10
 // DB 제약(010 마이그레이션)과 같게 맞춘다
 const TITLE_MAX = 100
 const CONTENT_MAX = 20000
 
-function EntryForm({ type, original, tagSuggestions }: { type: EntryType; original: Entry | null; tagSuggestions: string[] }) {
+function EntryForm({
+  type,
+  original,
+  initialDate,
+  tagSuggestions,
+}: {
+  type: EntryType
+  original: Entry | null
+  initialDate: string
+  tagSuggestions: string[]
+}) {
   const navigate = useNavigate()
   const { session } = useAuth()
-  const [draft, setDraft] = useState(() => toDraft(type, original))
+  const [draft, setDraft] = useState(() => toDraft(type, original, initialDate))
   const [preview, setPreview] = useState(false)
   const [progress, setProgress] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
