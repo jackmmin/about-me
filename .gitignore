@@ -45,3 +45,7 @@ scripts/android.local.env
 
 # 로컬 전용 운영 메모 (사용자 추가 절차 등, 비공개 앱이라 커밋하지 않음)
 local-docs/
+
+# Cloudflare Worker 로컬 비밀값·캐시
+.dev.vars
+.wrangler/

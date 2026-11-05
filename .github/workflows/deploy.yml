@@ -29,6 +29,8 @@ jobs:
           # 4단계에서 저장소 Secrets에 등록한다. anon key는 RLS로 보호되므로 프론트에 노출돼도 된다.
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          # 사진 Worker 주소 (저장소 Settings > Secrets and variables > Actions > Variables). 없으면 새 사진도 Supabase Storage에 저장
+          VITE_IMAGE_API_URL: ${{ vars.VITE_IMAGE_API_URL }}
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

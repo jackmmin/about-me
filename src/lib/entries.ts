@@ -115,10 +115,10 @@ export async function saveEntry(
       }
     } else {
       onProgress?.(`사진 업로드 중 (${++uploaded}/${newCount})`)
-      const path = await uploadImage(userId, entryId, d.file)
+      const { path, size } = await uploadImage(userId, entryId, d.key, d.file)
       const { error } = await supabase
         .from('entry_images')
-        .insert({ id: d.key, entry_id: entryId, storage_path: path, caption: d.caption, sort_order: index })
+        .insert({ id: d.key, entry_id: entryId, storage_path: path, size_bytes: size, caption: d.caption, sort_order: index })
       if (error) {
         await removeImages([path])
         throw error

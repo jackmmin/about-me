@@ -7,7 +7,7 @@ import { backupFileName, CATEGORIES, CATEGORY_LABEL, type BackupCategory } from 
 import { readBackup, restoreBackup, type LoadedBackup, type RestoreResult } from '../lib/backup/import.ts'
 import { openSink } from '../lib/backup/save.ts'
 import { formatDate } from '../lib/format.ts'
-import { DB_LIMIT, fetchUsage, formatBytes, STORAGE_LIMIT, WARN_RATIO } from '../lib/usage.ts'
+import { DB_LIMIT, fetchUsage, formatBytes, R2_LIMIT, STORAGE_LIMIT, WARN_RATIO } from '../lib/usage.ts'
 import { useLoad } from '../lib/useLoad.ts'
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
@@ -49,8 +49,10 @@ function UsageSection() {
       {usage.error && <p className="text-sm text-red-600 dark:text-red-400">사용량 확인 실패: {usage.error}</p>}
       {u && (
         <>
-          <UsageBar label="사진 (전체 사용자)" used={u.totalBytes} limit={STORAGE_LIMIT} note={`그중 내 사진 ${formatBytes(u.myBytes)}`} />
-          <UsageBar label="데이터베이스" used={u.dbBytes} limit={DB_LIMIT} />
+          <UsageBar label="사진 · R2 (전체 사용자)" used={u.r2Bytes} limit={R2_LIMIT} />
+          {u.storageBytes > 0 && <UsageBar label="예전 사진 · Supabase (전체 사용자)" used={u.storageBytes} limit={STORAGE_LIMIT} />}
+          <UsageBar label="데이터베이스 (기록)" used={u.dbBytes} limit={DB_LIMIT} />
+          <p className="text-xs text-neutral-400">그중 내 사진 {formatBytes(u.myBytes)}</p>
         </>
       )}
     </Card>

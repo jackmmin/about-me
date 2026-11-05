@@ -1,0 +1,16 @@
+# 사진 저장용 Cloudflare Worker + R2. 배포: npm run deploy (worker 폴더에서)
+# 비밀값·프로젝트 주소는 여기 적지 않고 `npx wrangler secret put <이름>`으로 등록한다.
+#   SUPABASE_URL         Supabase 프로젝트 주소 (https://xxxx.supabase.co)
+#   URL_SIGNING_SECRET   사진 임시 주소 서명용 임의 문자열 (32자 이상)
+#   SUPABASE_JWT_SECRET  (선택) 예전 방식(HS256) JWT를 쓰는 프로젝트만
+name = "about-me-images"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+
+[vars]
+# 사진 API를 부를 수 있는 사이트 (쉼표로 구분). Android 앱도 이 주소를 불러온다.
+ALLOWED_ORIGINS = "https://jackmmin.github.io,http://localhost:5173"
+
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "about-me-images"

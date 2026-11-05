@@ -1,5 +1,5 @@
 import { syncTags } from '../entries.ts'
-import { imageExt, removeImages, uploadBackupImage } from '../images.ts'
+import { imageExt, imagePath, removeImages, uploadBackupImage } from '../images.ts'
 import { supabase } from '../supabase.ts'
 import { existingIds, fetchAll } from './db.ts'
 import {
@@ -164,13 +164,14 @@ async function restoreEntry(userId: string, reader: ZipReader, folder: string, e
   try {
     await syncTags(entry.id, tags)
     for (const img of images) {
-      const path = `${userId}/${entry.id}/${img.id}.${imageExt(img.file)}`
-      await uploadBackupImage(path, await reader.read(`${folder}/${img.file}`))
-      uploaded.push(path)
+      const path = imagePath(userId, entry.id, img.id, imageExt(img.file))
+      uploaded.push(path) // 원본만 올라가고 썸네일에서 실패해도 지울 수 있게 먼저 넣는다
+      const size = await uploadBackupImage(path, await reader.read(`${folder}/${img.file}`))
       const { error } = await supabase.from('entry_images').insert({
         id: img.id,
         entry_id: entry.id,
         storage_path: path,
+        size_bytes: size,
         caption: img.caption,
         sort_order: img.sort_order,
         created_at: img.created_at,
