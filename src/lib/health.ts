@@ -11,7 +11,17 @@ export interface ExerciseLog {
 }
 
 export type MealKey = 'breakfast' | 'lunch' | 'dinner' | 'snack'
-export type SymptomKey = 'diarrhea' | 'bloating' | 'pain' | 'gas' | 'constipation' | 'nausea'
+export type SymptomKey =
+  | 'diarrhea'
+  | 'bloating'
+  | 'pain'
+  | 'gas'
+  | 'constipation'
+  | 'nausea'
+  | 'indigestion'
+  | 'vomiting'
+  | 'dizziness'
+  | 'cold_sweat'
 
 export const MEALS: { key: MealKey; label: string }[] = [
   { key: 'breakfast', label: '아침' },
@@ -27,6 +37,10 @@ export const SYMPTOMS: { key: SymptomKey; label: string }[] = [
   { key: 'gas', label: '가스' },
   { key: 'constipation', label: '변비' },
   { key: 'nausea', label: '구역감' },
+  { key: 'indigestion', label: '소화불량' },
+  { key: 'vomiting', label: '구토' },
+  { key: 'dizziness', label: '어지러움' },
+  { key: 'cold_sweat', label: '식은땀' },
 ]
 export const SYMPTOM_LABEL = Object.fromEntries(SYMPTOMS.map((s) => [s.key, s.label])) as Record<SymptomKey, string>
 export const MEAL_LABEL = Object.fromEntries(MEALS.map((m) => [m.key, m.label])) as Record<MealKey, string>
