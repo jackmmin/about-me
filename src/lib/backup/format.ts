@@ -1,6 +1,6 @@
 // 백업 파일(ZIP) 형식. 구조를 바꾸면 BACKUP_VERSION을 올리고 읽는 쪽에서 이전 버전도 처리한다.
 //
-// about-me-backup-YYYY-MM-DD.zip
+// backup-YYYY-MM-DD.zip
 // ├─ manifest.json
 // ├─ diary/entries.json, diary/images/{기록id}/{사진id}.webp (예전 사진은 .jpg)
 // ├─ photos/entries.json, photos/images/...
@@ -84,5 +84,5 @@ export const EXERCISES_PATH = 'health/exercises.json'
 export const MANIFEST_PATH = 'manifest.json'
 
 export function backupFileName(date = new Date()) {
-  return `about-me-backup-${date.toLocaleDateString('sv-SE')}.zip`
+  return `backup-${date.toLocaleDateString('sv-SE')}.zip`
 }

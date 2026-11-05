@@ -49,9 +49,9 @@ function dateRange(dates: string[]) {
 // 백업 파일을 읽고, DB와 비교해 항목별로 무엇이 추가되고 무엇을 건너뛸지 계산한다. (DB는 바꾸지 않음)
 export async function readBackup(file: Blob): Promise<LoadedBackup> {
   const reader = await ZipReader.open(file)
-  if (!reader.has(MANIFEST_PATH)) throw new Error('About Me 백업 파일이 아닙니다. (manifest.json 없음)')
+  if (!reader.has(MANIFEST_PATH)) throw new Error('생활기록 백업 파일이 아닙니다. (manifest.json 없음)')
   const manifest = await reader.readJson<BackupManifest>(MANIFEST_PATH)
-  if (manifest.format !== BACKUP_FORMAT) throw new Error('About Me 백업 파일이 아닙니다.')
+  if (manifest.format !== BACKUP_FORMAT) throw new Error('생활기록 백업 파일이 아닙니다.')
   if (manifest.version > BACKUP_VERSION) throw new Error('더 새로운 버전의 앱에서 만든 백업입니다. 앱을 업데이트하세요.')
 
   const loaded: LoadedBackup = { manifest, previews: [], reader, entries: {}, meals: [], exercises: [] }

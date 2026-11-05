@@ -17,8 +17,8 @@ export default defineConfig({
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
       manifest: {
         id: base,
-        name: 'About Me',
-        short_name: 'About Me',
+        name: '생활기록',
+        short_name: '생활기록',
         description: '나에 대한 기록',
         lang: 'ko',
         start_url: base,

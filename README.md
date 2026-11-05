@@ -1,4 +1,4 @@
-# about-me
+# 생활기록 (about-me)
 
 나에 대한 기록
 

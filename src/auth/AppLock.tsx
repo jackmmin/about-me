@@ -26,8 +26,8 @@ export function AppLock({ children }: { children: ReactNode }) {
   const unlock = useCallback(async () => {
     try {
       await BiometricAuth.authenticate({
-        reason: 'About Me 잠금 해제',
-        androidTitle: 'About Me',
+        reason: '생활기록 잠금 해제',
+        androidTitle: '생활기록',
         androidSubtitle: '지문 또는 기기 잠금으로 확인',
         allowDeviceCredential: true,
       })
@@ -72,7 +72,7 @@ export function AppLock({ children }: { children: ReactNode }) {
   return (
     <div className="grid min-h-dvh place-items-center p-6">
       <div className="flex flex-col items-center gap-4 text-center">
-        <p className="text-lg font-bold">About Me</p>
+        <p className="text-lg font-bold">생활기록</p>
         <p className="text-sm text-neutral-500">잠겨 있습니다.</p>
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
         <button

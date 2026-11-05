@@ -57,7 +57,7 @@ export function Layout() {
   return (
     <div className="min-h-dvh md:flex">
       <aside className="hidden md:sticky md:top-0 md:flex md:h-dvh md:w-56 md:shrink-0 md:flex-col md:border-r md:border-neutral-200 md:px-3 md:py-6 dark:md:border-neutral-800">
-        <p className="mb-6 px-3 text-lg font-bold">About Me</p>
+        <p className="mb-6 px-3 text-lg font-bold">생활기록</p>
         <nav className="flex flex-col gap-1">
           {NAV_SECTIONS.map((s) => (
             <NavLink key={s.key} to={s.path} end={s.path === '/'} className={sideLinkClass}>
@@ -86,7 +86,7 @@ export function Layout() {
       </aside>
 
       <header className="flex items-center justify-between px-4 pt-[calc(0.75rem+env(safe-area-inset-top))] md:hidden">
-        <p className="font-bold">About Me</p>
+        <p className="font-bold">생활기록</p>
         <div className="flex items-center gap-1">
           <NavLink to="/search" className="rounded-lg p-1.5 text-neutral-500" aria-label="검색">
             <SearchIcon className="size-5" />

@@ -71,7 +71,7 @@ async function openPickerSink(fileName: string): Promise<ByteSink | null> {
   try {
     handle = await (window as unknown as SaveFilePickerWindow).showSaveFilePicker({
       suggestedName: fileName,
-      types: [{ description: 'About Me 백업', accept: { 'application/zip': ['.zip'] } }],
+      types: [{ description: '생활기록 백업', accept: { 'application/zip': ['.zip'] } }],
     })
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return null

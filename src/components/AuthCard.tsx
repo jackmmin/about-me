@@ -5,7 +5,7 @@ export function AuthCard({ title, description, children }: { title: string; desc
   return (
     <div className="grid min-h-dvh place-items-center px-5 py-10">
       <div className="w-full max-w-sm">
-        <p className="mb-8 text-center text-lg font-bold">About Me</p>
+        <p className="mb-8 text-center text-lg font-bold">생활기록</p>
         <h1 className="text-xl font-semibold">{title}</h1>
         {description && <p className="mt-1 text-sm text-neutral-500">{description}</p>}
         <div className="mt-6">{children}</div>
