@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { listEntriesBetween } from '../../lib/entries.ts'
-import { formatDate, formatMonth, today } from '../../lib/format.ts'
-import { shiftDate } from '../../lib/health.ts'
-import { coverThumbPath } from '../../lib/images.ts'
-import { EMOTION_INFO, listMoods, SCORE_INFO, type DailyMood } from '../../lib/moods.ts'
-import { useLoad } from '../../lib/useLoad.ts'
-import { useSignedUrls } from '../../lib/useSignedUrls.ts'
-import { EntryCard } from '../EntryCard.tsx'
-import { primaryClass } from '../styles.ts'
-import { StatusMessage } from '../ui.tsx'
+import { listEntriesBetween } from '../lib/entries.ts'
+import { formatDate, formatMonth, today } from '../lib/format.ts'
+import { shiftDate } from '../lib/health.ts'
+import { coverThumbPath } from '../lib/images.ts'
+import { EMOTION_INFO, listMoods, SCORE_INFO, type DailyMood } from '../lib/moods.ts'
+import { ENTRY_TYPE_LABEL } from '../lib/types.ts'
+import { useLoad } from '../lib/useLoad.ts'
+import { useSignedUrls } from '../lib/useSignedUrls.ts'
+import { EntryCard } from './EntryCard.tsx'
+import { primaryClass } from './styles.ts'
+import { StatusMessage } from './ui.tsx'
 import { MoodPicker } from './MoodPicker.tsx'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
@@ -21,20 +22,22 @@ function shiftMonth(month: string, n: number) {
   return d.toISOString().slice(0, 7)
 }
 
-// 달력 칸에 보일 이모티콘: 컨디션 점수, 없으면 첫 감정
+// 달력 칸에 보일 이모티콘: 점수, 없으면 첫 감정
 function moodEmoji(mood: DailyMood | null) {
   if (!mood) return null
   if (mood.score !== null) return SCORE_INFO[mood.score]?.emoji ?? null
   return mood.emotions[0] ? EMOTION_INFO[mood.emotions[0]].emoji : null
 }
 
-// 월 달력: 날짜마다 컨디션 이모티콘과 일기 수(점). 날짜를 누르면 아래에서 컨디션을 고르고 그날 일기를 본다.
-// 부모가 key={month}로 넘겨, 달을 옮기면 이 화면에서 고친 컨디션 상태를 새로 시작한다.
-export function DiaryCalendar({
+// 일기·묵상 월 달력: 날짜마다 마음 이모티콘과 기록 수(점). 날짜를 누르면 아래에서 마음 상태를 고르고 그날 기록을 본다.
+// 부모가 key로 종류·달을 넘겨, 바뀌면 이 화면에서 고친 상태를 새로 시작한다.
+export function EntryCalendar({
+  type,
   month,
   selected,
   onNavigate,
 }: {
+  type: 'diary' | 'meditation'
   month: string
   selected: string | null
   onNavigate: (month: string, day: string | null) => void
@@ -42,11 +45,11 @@ export function DiaryCalendar({
   const from = `${month}-01`
   const to = shiftDate(`${shiftMonth(month, 1)}-01`, -1)
   const { data, error, loading } = useLoad(
-    () => Promise.all([listEntriesBetween('diary', from, to), listMoods(from, to)]),
-    [month],
-    `calendar:${month}`,
+    () => Promise.all([listEntriesBetween(type, from, to), listMoods(type, from, to)]),
+    [type, month],
+    `calendar:${type}:${month}`,
   )
-  // 이 화면에서 고친 컨디션 (불러온 값보다 우선)
+  // 이 화면에서 고친 마음 기록 (불러온 값보다 우선)
   const [edited, setEdited] = useState<Record<string, DailyMood | null>>({})
 
   const entries = data?.[0] ?? []
@@ -116,7 +119,7 @@ export function DiaryCalendar({
                 key={d}
                 type="button"
                 aria-pressed={isSelected}
-                aria-label={`${formatDate(d)}${count ? `, 일기 ${count}편` : ''}`}
+                aria-label={`${formatDate(d)}${count ? `, ${ENTRY_TYPE_LABEL[type]} ${count}편` : ''}`}
                 className={`flex aspect-square flex-col items-center justify-start rounded-lg pt-1 text-xs ${
                   isSelected
                     ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
@@ -141,11 +144,11 @@ export function DiaryCalendar({
         <div className="flex flex-col gap-4 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
           <div className="flex items-center justify-between gap-2">
             <h3 className="font-semibold">{formatDate(selected)}</h3>
-            <Link to={`/entries/new?type=diary&date=${selected}`} className={primaryClass}>
-              이 날 일기 쓰기
+            <Link to={`/entries/new?type=${type}&date=${selected}`} className={primaryClass}>
+              이 날 {ENTRY_TYPE_LABEL[type]} 쓰기
             </Link>
           </div>
-          <MoodPicker date={selected} mood={moodOf(selected)} onChange={(m) => setEdited((prev) => ({ ...prev, [selected]: m }))} />
+          <MoodPicker kind={type} date={selected} mood={moodOf(selected)} onChange={(m) => setEdited((prev) => ({ ...prev, [selected]: m }))} />
           {dayEntries.length > 0 && (
             <div className="flex flex-col gap-2">
               {dayEntries.map((e) => (

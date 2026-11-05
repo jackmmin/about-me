@@ -10,7 +10,7 @@ import {
   EXERCISES_PATH,
   MANIFEST_PATH,
   MEALS_PATH,
-  MOODS_PATH,
+  moodsPath,
   type BackupCategory,
   type BackupEntry,
   type BackupExercise,
@@ -37,15 +37,17 @@ export async function countRecords(): Promise<Record<BackupCategory, number>> {
     return count ?? 0
   }
   const entries = (type: string) => supabase.from('entries').select('id', { count: 'exact', head: true }).eq('type', type)
-  const [diary, photo, meditation, meals, exercises, moods] = await Promise.all([
+  const moods = (kind: string) => supabase.from('daily_moods').select('id', { count: 'exact', head: true }).eq('kind', kind)
+  const [diary, photo, meditation, meals, exercises, diaryMoods, meditationMoods] = await Promise.all([
     count(entries('diary')),
     count(entries('photo')),
     count(entries('meditation')),
     count(supabase.from('meal_logs').select('id', { count: 'exact', head: true })),
     count(supabase.from('exercise_logs').select('id', { count: 'exact', head: true })),
-    count(supabase.from('daily_moods').select('id', { count: 'exact', head: true })),
+    count(moods('diary')),
+    count(moods('meditation')),
   ])
-  return { diary: diary + moods, photo, meditation, health: meals + exercises }
+  return { diary: diary + diaryMoods, photo, meditation: meditation + meditationMoods, health: meals + exercises }
 }
 
 export interface BackupResult {
@@ -109,11 +111,16 @@ export async function createBackup(sink: ByteSink, categories: BackupCategory[],
       }
       await zip.addJson(entriesPath(category), entries)
       let moodCount = 0
-      if (category === 'diary') {
+      if (category === 'diary' || category === 'meditation') {
         const moods = await fetchAll<BackupMood>((from, to) =>
-          supabase.from('daily_moods').select('id, mood_date, score, emotions, created_at, updated_at').order('id').range(from, to),
+          supabase
+            .from('daily_moods')
+            .select('id, kind, mood_date, score, emotions, created_at, updated_at')
+            .eq('kind', category)
+            .order('id')
+            .range(from, to),
         )
-        await zip.addJson(MOODS_PATH, moods)
+        await zip.addJson(moodsPath(category), moods)
         moodCount = moods.length
       }
       manifest.counts[category] = { records: entries.length + moodCount, images: entries.reduce((n, e) => n + e.images.length, 0) }

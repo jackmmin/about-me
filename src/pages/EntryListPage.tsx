@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { DiaryCalendar } from '../components/diary/DiaryCalendar.tsx'
+import { EntryCalendar } from '../components/EntryCalendar.tsx'
 import { EntryCard } from '../components/EntryCard.tsx'
 import { primaryClass, secondaryClass } from '../components/styles.ts'
 import { Tabs } from '../components/Tabs.tsx'
@@ -22,12 +22,12 @@ const LIST_INFO: Record<ListType, { title: string; description: string; newLabel
 type ListType = Exclude<EntryType, 'photo'> // 사진은 PhotoGalleryPage
 type View = 'list' | 'calendar'
 
-// 일기·묵상 목록 (홈은 HomePage). 일기는 달력으로도 본다: ?view=calendar&month=YYYY-MM&day=YYYY-MM-DD
+// 일기·묵상 목록 (홈은 HomePage). 달력으로도 본다: ?view=calendar&month=YYYY-MM&day=YYYY-MM-DD
 // (뒤로 가기로 돌아와도 보던 달·날짜가 유지되도록 주소에 담는다)
 export function EntryListPage({ type }: { type: ListType }) {
   const [params, setParams] = useSearchParams()
   const info = LIST_INFO[type]
-  const view: View = type === 'diary' && params.get('view') === 'calendar' ? 'calendar' : 'list'
+  const view: View = params.get('view') === 'calendar' ? 'calendar' : 'list'
   const month = /^\d{4}-\d{2}$/.test(params.get('month') ?? '') ? params.get('month')! : today().slice(0, 7)
   const day = params.get('day')
 
@@ -47,11 +47,9 @@ export function EntryListPage({ type }: { type: ListType }) {
         description={info.description}
         actions={
           <>
-            {type === 'diary' && (
-              <Link to="/diary/stats" className={secondaryClass}>
-                통계
-              </Link>
-            )}
+            <Link to={`/${type}/stats`} className={secondaryClass}>
+              통계
+            </Link>
             <Link to={`/entries/new?type=${type}`} className={primaryClass}>
               {info.newLabel}
             </Link>
@@ -59,23 +57,21 @@ export function EntryListPage({ type }: { type: ListType }) {
         }
       />
 
-      {type === 'diary' && (
-        <div className="mb-4">
-          <Tabs<View>
-            items={[
-              { key: 'list', label: '목록' },
-              { key: 'calendar', label: '달력' },
-            ]}
-            value={view}
-            onChange={(v) => navigate(v === 'calendar' ? { view: 'calendar', day: today() } : { view: null, month: null, day: null })}
-            variant="secondary"
-            label="보기 방식"
-          />
-        </div>
-      )}
+      <div className="mb-4">
+        <Tabs<View>
+          items={[
+            { key: 'list', label: '목록' },
+            { key: 'calendar', label: '달력' },
+          ]}
+          value={view}
+          onChange={(v) => navigate(v === 'calendar' ? { view: 'calendar', day: today() } : { view: null, month: null, day: null })}
+          variant="secondary"
+          label="보기 방식"
+        />
+      </div>
 
       {view === 'calendar' ? (
-        <DiaryCalendar key={month} month={month} selected={day} onNavigate={(m, d) => navigate({ month: m, day: d })} />
+        <EntryCalendar key={`${type}:${month}`} type={type} month={month} selected={day} onNavigate={(m, d) => navigate({ month: m, day: d })} />
       ) : (
         <EntryList type={type} />
       )}

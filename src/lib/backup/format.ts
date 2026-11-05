@@ -4,7 +4,7 @@
 // ├─ manifest.json
 // ├─ diary/entries.json, diary/moods.json(날짜별 컨디션), diary/images/{기록id}/{사진id}.webp (예전 사진은 .jpg)
 // ├─ photos/entries.json, photos/images/...
-// ├─ meditation/entries.json
+// ├─ meditation/entries.json, meditation/moods.json(날짜별 마음 상태)
 // └─ health/meals.json, health/exercises.json
 //
 // 모든 기록은 원래 id를 그대로 담는다. 복원할 때 같은 id가 이미 있으면 건너뛴다.
@@ -66,9 +66,10 @@ export interface BackupMeal {
   updated_at: string
 }
 
-// 날짜별 컨디션 (일기 항목에 함께 담는다. moods.json이 없는 예전 백업도 읽는다)
+// 날짜별 마음 기록 (일기·묵상 항목에 함께 담는다. moods.json이 없거나 kind가 없는 예전 백업도 읽는다)
 export interface BackupMood {
   id: string
+  kind?: 'diary' | 'meditation' // 없으면 diary
   mood_date: string
   score: number | null
   emotions: string[]
@@ -89,7 +90,9 @@ export interface BackupExercise {
 export function entriesPath(category: Exclude<BackupCategory, 'health'>) {
   return `${CATEGORY_FOLDER[category]}/entries.json`
 }
-export const MOODS_PATH = 'diary/moods.json'
+export function moodsPath(category: 'diary' | 'meditation') {
+  return `${CATEGORY_FOLDER[category]}/moods.json`
+}
 export const MEALS_PATH = 'health/meals.json'
 export const EXERCISES_PATH = 'health/exercises.json'
 export const MANIFEST_PATH = 'manifest.json'

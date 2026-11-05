@@ -1,12 +1,23 @@
 import { useState } from 'react'
-import { EMOTIONS, MOOD_SCORES, saveMood, type DailyMood, type EmotionKey } from '../../lib/moods.ts'
+import { EMOTION_SETS, MOOD_KIND_LABEL, MOOD_SCORES, saveMood, type DailyMood, type MoodKind } from '../lib/moods.ts'
 
-// 그날의 컨디션: 점수 하나(다시 누르면 해제) + 감정 여러 개. 누를 때마다 바로 저장한다.
-export function MoodPicker({ date, mood, onChange }: { date: string; mood: DailyMood | null; onChange: (mood: DailyMood | null) => void }) {
+// 그날의 마음 기록: 점수 하나(다시 누르면 해제) + 감정 여러 개. 누를 때마다 바로 저장한다.
+export function MoodPicker({
+  kind,
+  date,
+  mood,
+  onChange,
+}: {
+  kind: MoodKind
+  date: string
+  mood: DailyMood | null
+  onChange: (mood: DailyMood | null) => void
+}) {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const score = mood?.score ?? null
   const emotions = mood?.emotions ?? []
+  const label = MOOD_KIND_LABEL[kind]
 
   async function save(next: DailyMood) {
     const previous = mood
@@ -14,7 +25,7 @@ export function MoodPicker({ date, mood, onChange }: { date: string; mood: Daily
     setPending(true)
     setError(null)
     try {
-      await saveMood(next)
+      await saveMood(kind, next)
     } catch (e) {
       onChange(previous)
       setError(e instanceof Error ? e.message : String(e))
@@ -23,7 +34,7 @@ export function MoodPicker({ date, mood, onChange }: { date: string; mood: Daily
     }
   }
 
-  function toggleEmotion(key: EmotionKey) {
+  function toggleEmotion(key: string) {
     const next = emotions.includes(key) ? emotions.filter((e) => e !== key) : [...emotions, key]
     void save({ mood_date: date, score, emotions: next })
   }
@@ -31,8 +42,8 @@ export function MoodPicker({ date, mood, onChange }: { date: string; mood: Daily
   return (
     <div className="flex flex-col gap-3">
       <div>
-        <p className="mb-1.5 text-xs text-neutral-500">컨디션</p>
-        <div className="grid grid-cols-5 gap-1.5" role="radiogroup" aria-label="컨디션">
+        <p className="mb-1.5 text-xs text-neutral-500">{label}</p>
+        <div className="grid grid-cols-5 gap-1.5" role="radiogroup" aria-label={label}>
           {MOOD_SCORES.map((m) => {
             const on = score === m.score
             return (
@@ -58,7 +69,7 @@ export function MoodPicker({ date, mood, onChange }: { date: string; mood: Daily
       <div>
         <p className="mb-1.5 text-xs text-neutral-500">감정 (여러 개 선택)</p>
         <div className="flex flex-wrap gap-1.5">
-          {EMOTIONS.map((e) => {
+          {EMOTION_SETS[kind].map((e) => {
             const on = emotions.includes(e.key)
             return (
               <button

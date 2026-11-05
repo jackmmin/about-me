@@ -12,7 +12,7 @@ import {
   EXERCISES_PATH,
   MANIFEST_PATH,
   MEALS_PATH,
-  MOODS_PATH,
+  moodsPath,
   type BackupCategory,
   type BackupEntry,
   type BackupExercise,
@@ -40,7 +40,7 @@ export interface LoadedBackup {
   entries: Partial<Record<BackupCategory, BackupEntry[]>> // 새로 추가할 것만
   meals: BackupMeal[]
   exercises: BackupExercise[]
-  moods: BackupMood[]
+  moods: Partial<Record<BackupCategory, BackupMood[]>> // 새로 추가할 것만
 }
 
 function dateRange(dates: string[]) {
@@ -57,7 +57,7 @@ export async function readBackup(file: Blob): Promise<LoadedBackup> {
   if (manifest.format !== BACKUP_FORMAT) throw new Error('생활기록 백업 파일이 아닙니다.')
   if (manifest.version > BACKUP_VERSION) throw new Error('더 새로운 버전의 앱에서 만든 백업입니다. 앱을 업데이트하세요.')
 
-  const loaded: LoadedBackup = { manifest, previews: [], reader, entries: {}, meals: [], exercises: [], moods: [] }
+  const loaded: LoadedBackup = { manifest, previews: [], reader, entries: {}, meals: [], exercises: [], moods: {} }
   for (const category of manifest.categories) {
     if (category === 'health') {
       const meals = await reader.readJson<BackupMeal[]>(MEALS_PATH)
@@ -103,27 +103,31 @@ export async function readBackup(file: Blob): Promise<LoadedBackup> {
     const existing = await existingIds('entries', entries.map((e) => e.id))
     loaded.entries[category] = entries.filter((e) => !existing.has(e.id))
 
-    // 일기에는 날짜별 컨디션이 함께 들어 있다. 하루 한 건이라 다른 id로 같은 날짜가 이미 있으면 건너뛴다.
-    const moods = category === 'diary' && reader.has(MOODS_PATH) ? await reader.readJson<BackupMood[]>(MOODS_PATH) : []
+    // 일기·묵상에는 날짜별 마음 기록이 함께 들어 있다. 종류별 하루 한 건이라 다른 id로 같은 날짜가 이미 있으면 건너뛴다.
+    const kind = category === 'photo' ? null : category
+    const moods =
+      kind && reader.has(moodsPath(kind))
+        ? (await reader.readJson<BackupMood[]>(moodsPath(kind))).map((m) => ({ ...m, kind: m.kind ?? 'diary' })).filter((m) => m.kind === kind)
+        : []
     const existingMoods = await existingIds('daily_moods', moods.map((m) => m.id))
     const newMoods = moods.filter((m) => !existingMoods.has(m.id))
     const takenDates = new Set<string>()
     if (newMoods.length > 0) {
       const { from, to } = dateRange(newMoods.map((m) => m.mood_date))
       const rows = await fetchAll<{ mood_date: string }>((a, b) =>
-        supabase.from('daily_moods').select('mood_date').gte('mood_date', from!).lte('mood_date', to!).order('id').range(a, b),
+        supabase.from('daily_moods').select('mood_date').eq('kind', kind!).gte('mood_date', from!).lte('mood_date', to!).order('id').range(a, b),
       )
       for (const r of rows) takenDates.add(r.mood_date)
     }
-    loaded.moods = newMoods.filter((m) => !takenDates.has(m.mood_date))
+    loaded.moods[category] = newMoods.filter((m) => !takenDates.has(m.mood_date))
 
     loaded.previews.push({
       category,
       total: entries.length + moods.length,
       images: entries.reduce((n, e) => n + e.images.length, 0),
-      added: loaded.entries[category].length + loaded.moods.length,
+      added: loaded.entries[category].length + loaded.moods[category]!.length,
       existing: existing.size + existingMoods.size,
-      conflicts: newMoods.length - loaded.moods.length,
+      conflicts: newMoods.length - loaded.moods[category]!.length,
       ...dateRange([...entries.map((e) => e.record_date), ...moods.map((m) => m.mood_date)]),
     })
   }
@@ -169,7 +173,7 @@ export async function restoreBackup(
         result.failed.push(`${entry.record_date} "${entry.title || '제목 없음'}": ${e instanceof Error ? e.message : e}`)
       }
     }
-    if (category === 'diary') await insertRows('daily_moods', backup.moods, (m) => `컨디션 ${m.mood_date}`, result)
+    await insertRows('daily_moods', backup.moods[category] ?? [], (m) => `마음 기록 ${m.mood_date}`, result)
   }
   clearLoadCache()
   return results
