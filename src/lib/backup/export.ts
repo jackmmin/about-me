@@ -1,4 +1,4 @@
-import { downloadImage } from '../images.ts'
+import { downloadImage, imageExt } from '../images.ts'
 import { supabase } from '../supabase.ts'
 import { fetchAll } from './db.ts'
 import {
@@ -93,7 +93,7 @@ export async function createBackup(sink: ByteSink, categories: BackupCategory[],
         const images: BackupEntry['images'] = []
         for (const img of [...entry_images].sort((a, b) => a.sort_order - b.sort_order)) {
           onProgress(`${label} 사진 받는 중 (${++done}/${total})`)
-          const file = `images/${row.id}/${img.id}.jpg`
+          const file = `images/${row.id}/${img.id}.${imageExt(img.storage_path)}`
           try {
             await zip.addFile(`${CATEGORY_FOLDER[category]}/${file}`, await downloadImage(img.storage_path))
           } catch (e) {

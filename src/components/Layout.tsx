@@ -1,5 +1,7 @@
-import { NavLink, Outlet } from 'react-router'
+import { Link, NavLink, Outlet } from 'react-router'
 import { signOut } from '../auth/useAuth.ts'
+import { fetchUsage, usageWarnings } from '../lib/usage.ts'
+import { useLoad } from '../lib/useLoad.ts'
 import { NAV_SECTIONS } from '../sections.ts'
 import { SectionIcon } from './SectionIcon.tsx'
 import { ThemeToggle } from './ThemeToggle.tsx'
@@ -17,6 +19,29 @@ function BackupIcon({ className }: { className?: string }) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
       <path d="M4 14v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5M12 4v11M8 11l4 4 4-4" />
     </svg>
+  )
+}
+
+// 무료 플랜 용량이 80%를 넘으면 모든 화면 위에 띄운다 (조회 실패 시에는 아무것도 안 보임)
+function UsageBanner() {
+  const usage = useLoad(fetchUsage, [])
+  const warnings = usage.data ? usageWarnings(usage.data) : []
+  if (warnings.length === 0) return null
+  return (
+    <div role="alert" className="mb-4 rounded-xl border-2 border-red-500 bg-red-50 px-4 py-3 text-sm text-red-800 dark:bg-red-950/60 dark:text-red-200">
+      <p className="font-bold">⚠️ 저장 공간이 거의 찼습니다</p>
+      <ul className="mt-1">
+        {warnings.map((w) => (
+          <li key={w}>{w}</li>
+        ))}
+      </ul>
+      <p className="mt-1">
+        가득 차면 사진을 더 올릴 수 없습니다.{' '}
+        <Link to="/backup" className="font-semibold underline">
+          사용량 자세히 보기
+        </Link>
+      </p>
+    </div>
   )
 }
 
@@ -77,6 +102,7 @@ export function Layout() {
       </header>
 
       <main className="mx-auto w-full max-w-3xl px-4 pt-4 pb-[calc(5rem+env(safe-area-inset-bottom))] md:px-8 md:pt-6 md:pb-10">
+        <UsageBanner />
         <Outlet />
       </main>
 

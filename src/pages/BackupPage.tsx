@@ -7,6 +7,7 @@ import { backupFileName, CATEGORIES, CATEGORY_LABEL, type BackupCategory } from 
 import { readBackup, restoreBackup, type LoadedBackup, type RestoreResult } from '../lib/backup/import.ts'
 import { openSink } from '../lib/backup/save.ts'
 import { formatDate } from '../lib/format.ts'
+import { DB_LIMIT, fetchUsage, formatBytes, STORAGE_LIMIT, WARN_RATIO } from '../lib/usage.ts'
 import { useLoad } from '../lib/useLoad.ts'
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
@@ -31,10 +32,47 @@ export function BackupPage() {
         </p>
       )}
       <div className="flex flex-col gap-8">
+        <UsageSection />
         <BackupSection busy={busy} setBusy={setBusy} />
         <RestoreSection busy={busy} setBusy={setBusy} />
       </div>
     </section>
+  )
+}
+
+function UsageSection() {
+  const usage = useLoad(fetchUsage, [])
+  const u = usage.data
+  return (
+    <Card title="저장 공간" description={`무료 플랜 한도. 모든 사용자가 함께 쓰며 ${WARN_RATIO * 100}%를 넘으면 모든 화면에 경고가 뜹니다.`}>
+      {usage.loading && <p className="text-sm text-neutral-500">불러오는 중…</p>}
+      {usage.error && <p className="text-sm text-red-600 dark:text-red-400">사용량 확인 실패: {usage.error}</p>}
+      {u && (
+        <>
+          <UsageBar label="사진 (전체 사용자)" used={u.totalBytes} limit={STORAGE_LIMIT} note={`그중 내 사진 ${formatBytes(u.myBytes)}`} />
+          <UsageBar label="데이터베이스" used={u.dbBytes} limit={DB_LIMIT} />
+        </>
+      )}
+    </Card>
+  )
+}
+
+function UsageBar({ label, used, limit, note }: { label: string; used: number; limit: number; note?: string }) {
+  const ratio = Math.min(1, used / limit)
+  const warn = ratio >= WARN_RATIO
+  return (
+    <div className="text-sm">
+      <div className="flex justify-between">
+        <span className="font-semibold">{label}</span>
+        <span className={warn ? 'font-semibold text-red-600 dark:text-red-400' : 'text-neutral-500'}>
+          {formatBytes(used)} / {formatBytes(limit)} ({Math.round(ratio * 100)}%)
+        </span>
+      </div>
+      <div className="mt-1 h-2 overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
+        <div className={`h-full rounded-full ${warn ? 'bg-red-500' : 'bg-neutral-900 dark:bg-white'}`} style={{ width: `${ratio * 100}%` }} />
+      </div>
+      {note && <p className="mt-1 text-xs text-neutral-400">{note}</p>}
+    </div>
   )
 }
 

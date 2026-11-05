@@ -3,7 +3,7 @@ export type EntryType = 'diary' | 'photo' | 'meditation'
 export interface EntryImage {
   id: string
   entry_id: string
-  storage_path: string // 원본(긴 변 2000px). 썸네일은 thumbPath()로 계산
+  storage_path: string // 원본(긴 변 2000px, .webp 또는 예전 .jpg). 썸네일은 thumbPath()로 계산
   caption: string
   sort_order: number
 }

@@ -42,3 +42,6 @@ keystore.properties
 
 # Android 로컬 빌드 설정 (경로·키 정보, 커밋 금지)
 scripts/android.local.env
+
+# 로컬 전용 운영 메모 (사용자 추가 절차 등, 비공개 앱이라 커밋하지 않음)
+local-docs/

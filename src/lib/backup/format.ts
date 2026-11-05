@@ -2,7 +2,7 @@
 //
 // about-me-backup-YYYY-MM-DD.zip
 // ├─ manifest.json
-// ├─ diary/entries.json, diary/images/{기록id}/{사진id}.jpg
+// ├─ diary/entries.json, diary/images/{기록id}/{사진id}.webp (예전 사진은 .jpg)
 // ├─ photos/entries.json, photos/images/...
 // ├─ meditation/entries.json
 // └─ health/meals.json, health/exercises.json
@@ -35,7 +35,7 @@ export interface BackupManifest {
 
 export interface BackupImage {
   id: string
-  file: string // 카테고리 폴더 기준 상대 경로 (images/{기록id}/{사진id}.jpg)
+  file: string // 카테고리 폴더 기준 상대 경로 (images/{기록id}/{사진id}.webp 또는 .jpg)
   caption: string
   sort_order: number
   created_at: string

@@ -1,5 +1,5 @@
 import { syncTags } from '../entries.ts'
-import { removeImages, uploadBackupImage } from '../images.ts'
+import { imageExt, removeImages, uploadBackupImage } from '../images.ts'
 import { supabase } from '../supabase.ts'
 import { existingIds, fetchAll } from './db.ts'
 import {
@@ -164,7 +164,7 @@ async function restoreEntry(userId: string, reader: ZipReader, folder: string, e
   try {
     await syncTags(entry.id, tags)
     for (const img of images) {
-      const path = `${userId}/${entry.id}/${img.id}.jpg`
+      const path = `${userId}/${entry.id}/${img.id}.${imageExt(img.file)}`
       await uploadBackupImage(path, await reader.read(`${folder}/${img.file}`))
       uploaded.push(path)
       const { error } = await supabase.from('entry_images').insert({
