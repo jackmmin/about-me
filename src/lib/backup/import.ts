@@ -12,11 +12,13 @@ import {
   EXERCISES_PATH,
   MANIFEST_PATH,
   MEALS_PATH,
+  MOODS_PATH,
   type BackupCategory,
   type BackupEntry,
   type BackupExercise,
   type BackupManifest,
   type BackupMeal,
+  type BackupMood,
 } from './format.ts'
 import { ZipReader } from './zip.ts'
 
@@ -26,7 +28,7 @@ export interface CategoryPreview {
   images: number
   added: number // 새로 추가될 기록 수
   existing: number // 같은 id가 이미 있어 건너뛸 기록 수
-  conflicts: number // 같은 날짜·끼니(아침·점심·저녁)가 이미 있어 건너뛸 기록 수
+  conflicts: number // 같은 날짜·끼니(아침·점심·저녁)나 같은 날짜의 컨디션이 이미 있어 건너뛸 기록 수
   from: string | null // 기록 날짜 범위
   to: string | null
 }
@@ -38,6 +40,7 @@ export interface LoadedBackup {
   entries: Partial<Record<BackupCategory, BackupEntry[]>> // 새로 추가할 것만
   meals: BackupMeal[]
   exercises: BackupExercise[]
+  moods: BackupMood[]
 }
 
 function dateRange(dates: string[]) {
@@ -54,7 +57,7 @@ export async function readBackup(file: Blob): Promise<LoadedBackup> {
   if (manifest.format !== BACKUP_FORMAT) throw new Error('생활기록 백업 파일이 아닙니다.')
   if (manifest.version > BACKUP_VERSION) throw new Error('더 새로운 버전의 앱에서 만든 백업입니다. 앱을 업데이트하세요.')
 
-  const loaded: LoadedBackup = { manifest, previews: [], reader, entries: {}, meals: [], exercises: [] }
+  const loaded: LoadedBackup = { manifest, previews: [], reader, entries: {}, meals: [], exercises: [], moods: [] }
   for (const category of manifest.categories) {
     if (category === 'health') {
       const meals = await reader.readJson<BackupMeal[]>(MEALS_PATH)
@@ -99,14 +102,29 @@ export async function readBackup(file: Blob): Promise<LoadedBackup> {
     const entries = (await reader.readJson<BackupEntry[]>(entriesPath(category))).filter((e) => e.type === category)
     const existing = await existingIds('entries', entries.map((e) => e.id))
     loaded.entries[category] = entries.filter((e) => !existing.has(e.id))
+
+    // 일기에는 날짜별 컨디션이 함께 들어 있다. 하루 한 건이라 다른 id로 같은 날짜가 이미 있으면 건너뛴다.
+    const moods = category === 'diary' && reader.has(MOODS_PATH) ? await reader.readJson<BackupMood[]>(MOODS_PATH) : []
+    const existingMoods = await existingIds('daily_moods', moods.map((m) => m.id))
+    const newMoods = moods.filter((m) => !existingMoods.has(m.id))
+    const takenDates = new Set<string>()
+    if (newMoods.length > 0) {
+      const { from, to } = dateRange(newMoods.map((m) => m.mood_date))
+      const rows = await fetchAll<{ mood_date: string }>((a, b) =>
+        supabase.from('daily_moods').select('mood_date').gte('mood_date', from!).lte('mood_date', to!).order('id').range(a, b),
+      )
+      for (const r of rows) takenDates.add(r.mood_date)
+    }
+    loaded.moods = newMoods.filter((m) => !takenDates.has(m.mood_date))
+
     loaded.previews.push({
       category,
-      total: entries.length,
+      total: entries.length + moods.length,
       images: entries.reduce((n, e) => n + e.images.length, 0),
-      added: loaded.entries[category].length,
-      existing: existing.size,
-      conflicts: 0,
-      ...dateRange(entries.map((e) => e.record_date)),
+      added: loaded.entries[category].length + loaded.moods.length,
+      existing: existing.size + existingMoods.size,
+      conflicts: newMoods.length - loaded.moods.length,
+      ...dateRange([...entries.map((e) => e.record_date), ...moods.map((m) => m.mood_date)]),
     })
   }
   return loaded
@@ -151,6 +169,7 @@ export async function restoreBackup(
         result.failed.push(`${entry.record_date} "${entry.title || '제목 없음'}": ${e instanceof Error ? e.message : e}`)
       }
     }
+    if (category === 'diary') await insertRows('daily_moods', backup.moods, (m) => `컨디션 ${m.mood_date}`, result)
   }
   clearLoadCache()
   return results
@@ -189,7 +208,7 @@ async function restoreEntry(userId: string, reader: ZipReader, folder: string, e
 
 // 100건씩 넣고, 묶음이 실패하면 한 건씩 다시 넣어 실패한 기록만 골라낸다.
 async function insertRows<T extends { id: string }>(
-  table: 'meal_logs' | 'exercise_logs',
+  table: 'meal_logs' | 'exercise_logs' | 'daily_moods',
   rows: T[],
   describe: (row: T) => string,
   result: RestoreResult,

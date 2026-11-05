@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { ChartCard, DailyBarChart, type ChartRow, type SeriesDef } from '../components/health/charts.tsx'
+import { ChartCard, DailyBarChart, type ChartRow, type SeriesDef } from '../components/charts.tsx'
 import { PageHeader, StatusMessage } from '../components/ui.tsx'
 import { today } from '../lib/format.ts'
 import { dateRange, listHealthRange, shiftDate, type ExerciseLog, type MealLog } from '../lib/health.ts'

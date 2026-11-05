@@ -1,3 +1,4 @@
+import { fetchAll } from './backup/db.ts'
 import { removeImages, uploadImage } from './images.ts'
 import { supabase } from './supabase.ts'
 import type { Entry, EntryImage, EntryType, Passage } from './types.ts'
@@ -47,6 +48,23 @@ export async function listEntries({
   const { data, error } = await query
   if (error) throw error
   return (data as unknown as EntryRow[]).map(toEntry)
+}
+
+// 기간 안의 기록 전부 (날짜순). 달력과 일기 통계에서 쓴다. content에는 본문 앞부분만 들어 있다.
+export async function listEntriesBetween(type: EntryType, from: string, to: string) {
+  const rows = await fetchAll<EntryRow>((a, b) =>
+    supabase
+      .from('entries')
+      .select(LIST_SELECT)
+      .eq('type', type)
+      .gte('record_date', from)
+      .lte('record_date', to)
+      .order('record_date')
+      .order('created_at')
+      .order('id')
+      .range(a, b),
+  )
+  return rows.map(toEntry)
 }
 
 // 사진이 한 장 이상 있는 기록 (최신순). content·tags는 비어 있다.

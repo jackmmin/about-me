@@ -32,3 +32,8 @@ export function excerpt(markdown: string, length = 120) {
     .trim()
   return text.length > length ? `${text.slice(0, length)}…` : text
 }
+
+// 차트 눈금용 짧은 날짜 (M/D)
+export function shortDate(date: string) {
+  return `${Number(date.slice(5, 7))}/${Number(date.slice(8))}`
+}

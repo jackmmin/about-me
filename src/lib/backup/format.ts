@@ -2,7 +2,7 @@
 //
 // backup-YYYY-MM-DD.zip
 // ├─ manifest.json
-// ├─ diary/entries.json, diary/images/{기록id}/{사진id}.webp (예전 사진은 .jpg)
+// ├─ diary/entries.json, diary/moods.json(날짜별 컨디션), diary/images/{기록id}/{사진id}.webp (예전 사진은 .jpg)
 // ├─ photos/entries.json, photos/images/...
 // ├─ meditation/entries.json
 // └─ health/meals.json, health/exercises.json
@@ -66,6 +66,16 @@ export interface BackupMeal {
   updated_at: string
 }
 
+// 날짜별 컨디션 (일기 항목에 함께 담는다. moods.json이 없는 예전 백업도 읽는다)
+export interface BackupMood {
+  id: string
+  mood_date: string
+  score: number | null
+  emotions: string[]
+  created_at: string
+  updated_at: string
+}
+
 export interface BackupExercise {
   id: string
   log_date: string
@@ -79,6 +89,7 @@ export interface BackupExercise {
 export function entriesPath(category: Exclude<BackupCategory, 'health'>) {
   return `${CATEGORY_FOLDER[category]}/entries.json`
 }
+export const MOODS_PATH = 'diary/moods.json'
 export const MEALS_PATH = 'health/meals.json'
 export const EXERCISES_PATH = 'health/exercises.json'
 export const MANIFEST_PATH = 'manifest.json'

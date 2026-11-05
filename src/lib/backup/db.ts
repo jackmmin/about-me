@@ -15,7 +15,7 @@ export async function fetchAll<T>(page: (from: number, to: number) => PromiseLik
 }
 
 // ids 중 이미 DB에 있는 것. (주소 길이 제한 때문에 나눠서 조회)
-export async function existingIds(table: 'entries' | 'meal_logs' | 'exercise_logs', ids: string[]) {
+export async function existingIds(table: 'entries' | 'meal_logs' | 'exercise_logs' | 'daily_moods', ids: string[]) {
   const found = new Set<string>()
   for (let i = 0; i < ids.length; i += 150) {
     const { data, error } = await supabase.from(table).select('id').in('id', ids.slice(i, i + 150))

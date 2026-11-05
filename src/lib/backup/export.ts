@@ -10,11 +10,13 @@ import {
   EXERCISES_PATH,
   MANIFEST_PATH,
   MEALS_PATH,
+  MOODS_PATH,
   type BackupCategory,
   type BackupEntry,
   type BackupExercise,
   type BackupManifest,
   type BackupMeal,
+  type BackupMood,
 } from './format.ts'
 import type { ByteSink } from './save.ts'
 import { ZipWriter } from './zip.ts'
@@ -35,14 +37,15 @@ export async function countRecords(): Promise<Record<BackupCategory, number>> {
     return count ?? 0
   }
   const entries = (type: string) => supabase.from('entries').select('id', { count: 'exact', head: true }).eq('type', type)
-  const [diary, photo, meditation, meals, exercises] = await Promise.all([
+  const [diary, photo, meditation, meals, exercises, moods] = await Promise.all([
     count(entries('diary')),
     count(entries('photo')),
     count(entries('meditation')),
     count(supabase.from('meal_logs').select('id', { count: 'exact', head: true })),
     count(supabase.from('exercise_logs').select('id', { count: 'exact', head: true })),
+    count(supabase.from('daily_moods').select('id', { count: 'exact', head: true })),
   ])
-  return { diary, photo, meditation, health: meals + exercises }
+  return { diary: diary + moods, photo, meditation, health: meals + exercises }
 }
 
 export interface BackupResult {
@@ -105,7 +108,15 @@ export async function createBackup(sink: ByteSink, categories: BackupCategory[],
         entries.push({ ...row, meta: row.meta ?? {}, tags: entry_tags.flatMap((t) => (t.tags ? [t.tags.name] : [])).sort(), images })
       }
       await zip.addJson(entriesPath(category), entries)
-      manifest.counts[category] = { records: entries.length, images: entries.reduce((n, e) => n + e.images.length, 0) }
+      let moodCount = 0
+      if (category === 'diary') {
+        const moods = await fetchAll<BackupMood>((from, to) =>
+          supabase.from('daily_moods').select('id, mood_date, score, emotions, created_at, updated_at').order('id').range(from, to),
+        )
+        await zip.addJson(MOODS_PATH, moods)
+        moodCount = moods.length
+      }
+      manifest.counts[category] = { records: entries.length + moodCount, images: entries.reduce((n, e) => n + e.images.length, 0) }
     }
 
     onProgress('파일 마무리 중…')
