@@ -41,6 +41,9 @@ function toDraft(type: EntryType, original: Entry | null): EntryDraft {
 
 const DIARY_MAX_IMAGES = 5
 const DIARY_MAX_IMAGE_MB = 5
+// DB 제약(010 마이그레이션)과 같게 맞춘다
+const TITLE_MAX = 100
+const CONTENT_MAX = 20000
 
 function EntryForm({ type, original, tagSuggestions }: { type: EntryType; original: Entry | null; tagSuggestions: string[] }) {
   const navigate = useNavigate()
@@ -71,6 +74,10 @@ function EntryForm({ type, original, tagSuggestions }: { type: EntryType; origin
       return setError(`일기 사진은 최대 ${DIARY_MAX_IMAGES}장입니다. ${draft.images.length - DIARY_MAX_IMAGES}장을 빼 주세요.`)
     if (type === 'meditation' && draft.passages.length === 0 && !draft.content.trim())
       return setError('말씀을 추가하거나 묵상 내용을 입력하세요.')
+    // 제한 전에 쓴 기록은 입력란이 자르지 않으므로 저장 때 한 번 더 확인
+    if (draft.title.length > TITLE_MAX) return setError(`제목은 ${TITLE_MAX}자까지 쓸 수 있습니다.`)
+    if (draft.content.length > CONTENT_MAX)
+      return setError(`내용은 ${CONTENT_MAX.toLocaleString()}자까지 쓸 수 있습니다. ${(draft.content.length - CONTENT_MAX).toLocaleString()}자를 줄여 주세요.`)
     if (!session) return
     setError(null)
     setProgress('저장 중…')
@@ -110,6 +117,7 @@ function EntryForm({ type, original, tagSuggestions }: { type: EntryType; origin
         <input
           className={fieldClass}
           placeholder={type === 'photo' ? '앨범 제목' : type === 'meditation' ? '제목 (선택)' : '제목'}
+          maxLength={TITLE_MAX}
           value={draft.title}
           onChange={(e) => set('title', e.target.value)}
         />
@@ -142,10 +150,14 @@ function EntryForm({ type, original, tagSuggestions }: { type: EntryType; origin
                     ? '묵상 내용 (마크다운 지원)'
                     : '오늘의 기록 (마크다운 지원)'
               }
+              maxLength={CONTENT_MAX}
               value={draft.content}
               onChange={(e) => set('content', e.target.value)}
             />
           )}
+          <p className={`mt-1 text-right text-xs ${draft.content.length > CONTENT_MAX * 0.9 ? 'text-red-600 dark:text-red-400' : 'text-neutral-400'}`}>
+            {draft.content.length.toLocaleString()} / {CONTENT_MAX.toLocaleString()}자
+          </p>
         </div>
 
         {type === 'diary' && (
