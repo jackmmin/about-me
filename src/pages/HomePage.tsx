@@ -17,8 +17,8 @@ type Filter = 'all' | EntryType | 'health'
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: '전체' },
   { key: 'diary', label: '일기' },
-  { key: 'meditation', label: '묵상' },
   { key: 'health', label: '건강' },
+  { key: 'meditation', label: '묵상' },
 ]
 
 interface Day {
