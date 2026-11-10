@@ -1,10 +1,20 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { deleteMeal, SEVERITY_LABEL, SYMPTOMS, saveMeal, type MealKey, type MealLog, type SymptomKey } from '../../lib/health.ts'
-import { fieldClass, secondaryClass } from '../styles.ts'
+import { fieldClass } from '../styles.ts'
 import { TagInput } from '../TagInput.tsx'
 
-// 끼니 하나: 먹은 음식, 식후 증상(체크 + 정도), 메모. 끼니별로 따로 저장한다.
-// 간식은 한 건마다 카드 하나 (onCancel이 있으면 취소 버튼을 보여준다).
+interface Draft {
+  foods: string[]
+  symptoms: SymptomKey[]
+  severity: number | null
+  note: string
+}
+
+// 메모는 입력이 멈추면 저장한다
+const NOTE_DELAY = 800
+
+// 끼니 하나: 먹은 음식, 식후 증상(체크 + 정도), 메모. 바꾸는 즉시 자동 저장한다.
+// 간식은 한 건마다 카드 하나 (onDeleted가 있으면 삭제 후 카드를 목록에서 빼고, 저장 전 카드도 닫을 수 있다).
 export function MealCard({
   date,
   meal,
@@ -12,7 +22,7 @@ export function MealCard({
   initial,
   foodSuggestions,
   onSaved,
-  onCancel,
+  onDeleted,
 }: {
   date: string
   meal: MealKey
@@ -20,68 +30,123 @@ export function MealCard({
   initial: MealLog | undefined
   foodSuggestions: string[]
   onSaved: () => void
-  onCancel?: () => void
+  onDeleted?: () => void
 }) {
+  const [draft, setDraft] = useState<Draft>(() => ({
+    foods: initial?.foods ?? [],
+    symptoms: initial?.symptoms ?? [],
+    severity: initial?.severity ?? null,
+    note: initial?.note ?? '',
+  }))
   // 처음 저장하면 id가 생긴다. 이후 저장은 같은 행을 수정한다.
   const [id, setId] = useState(initial?.id ?? null)
-  const [foods, setFoods] = useState(initial?.foods ?? [])
-  const [symptoms, setSymptoms] = useState<SymptomKey[]>(initial?.symptoms ?? [])
-  const [severity, setSeverity] = useState<number | null>(initial?.severity ?? null)
-  const [note, setNote] = useState(initial?.note ?? '')
-  const [dirty, setDirty] = useState(false)
-  const [status, setStatus] = useState<{ pending?: boolean; message?: string; error?: boolean }>({})
+  const [status, setStatus] = useState<{ state: 'idle' | 'saving' | 'saved' | 'error'; message?: string }>({ state: 'idle' })
 
-  const touch = () => {
-    setDirty(true)
-    setStatus({})
-  }
+  // 저장은 한 번에 하나만. 저장 중에 또 바뀌면 끝난 뒤 최신 값으로 한 번 더 저장한다 (첫 insert가 두 번 되지 않게).
+  const latest = useRef(draft)
+  const idRef = useRef(id)
+  const changed = useRef(false)
+  const saving = useRef(false)
+  const timer = useRef<number | undefined>(undefined)
+  const onSavedRef = useRef(onSaved)
+  useEffect(() => {
+    onSavedRef.current = onSaved
+  })
 
-  function toggleSymptom(key: SymptomKey) {
-    const next = symptoms.includes(key) ? symptoms.filter((s) => s !== key) : [...symptoms, key]
-    setSymptoms(next)
-    if (next.length === 0) setSeverity(null)
-    touch()
-  }
-
-  async function save() {
-    setStatus({ pending: true })
+  async function flush() {
+    window.clearTimeout(timer.current)
+    timer.current = undefined
+    if (saving.current) return
+    saving.current = true
+    setStatus({ state: 'saving' })
     try {
-      setId(await saveMeal({ id, log_date: date, meal, foods, symptoms, severity: symptoms.length ? severity : null, note: note.trim() }))
-      setDirty(false)
-      setStatus({ message: '저장했습니다.' })
-      onSaved()
+      while (changed.current) {
+        changed.current = false
+        const d = latest.current
+        idRef.current = await saveMeal({
+          id: idRef.current,
+          log_date: date,
+          meal,
+          foods: d.foods,
+          symptoms: d.symptoms,
+          severity: d.symptoms.length ? d.severity : null,
+          note: d.note.trim(),
+        })
+      }
+      setId(idRef.current)
+      setStatus({ state: 'saved' })
+      onSavedRef.current()
     } catch (e) {
-      setStatus({ error: true, message: e instanceof Error ? e.message : String(e) })
+      changed.current = true
+      setStatus({ state: 'error', message: e instanceof Error ? e.message : String(e) })
+    } finally {
+      saving.current = false
     }
   }
 
+  // 날짜를 옮기는 등으로 카드가 사라질 때, 기다리던 메모 저장을 마저 한다.
+  const flushRef = useRef(flush)
+  useEffect(() => {
+    flushRef.current = flush
+  })
+  useEffect(
+    () => () => {
+      if (timer.current !== undefined) void flushRef.current()
+    },
+    [],
+  )
+
+  function change(next: Partial<Draft>, delay = 0) {
+    latest.current = { ...latest.current, ...next }
+    setDraft(latest.current)
+    changed.current = true
+    window.clearTimeout(timer.current)
+    if (delay > 0) timer.current = window.setTimeout(() => void flush(), delay)
+    else void flush()
+  }
+
+  function toggleSymptom(key: SymptomKey) {
+    const symptoms = draft.symptoms.includes(key) ? draft.symptoms.filter((s) => s !== key) : [...draft.symptoms, key]
+    change(symptoms.length ? { symptoms } : { symptoms, severity: null })
+  }
+
   async function remove() {
-    if (!id || !confirm(`이 ${label} 기록을 삭제할까요?`)) return
-    setStatus({ pending: true })
+    // 아직 저장 안 된 간식 카드는 그냥 닫는다
+    if (!id) {
+      window.clearTimeout(timer.current)
+      timer.current = undefined
+      onDeleted?.()
+      return
+    }
+    if (!confirm(`이 ${label} 기록을 삭제할까요?`)) return
+    window.clearTimeout(timer.current)
+    timer.current = undefined
+    saving.current = true
+    setStatus({ state: 'saving' })
     try {
       await deleteMeal(id)
+      changed.current = false
+      idRef.current = null
       setId(null)
-      setFoods([])
-      setSymptoms([])
-      setSeverity(null)
-      setNote('')
-      setDirty(false)
-      setStatus({ message: '삭제했습니다.' })
-      onSaved()
+      latest.current = { foods: [], symptoms: [], severity: null, note: '' }
+      setDraft(latest.current)
+      setStatus({ state: 'idle' })
+      onSavedRef.current()
+      onDeleted?.()
     } catch (e) {
-      setStatus({ error: true, message: e instanceof Error ? e.message : String(e) })
+      setStatus({ state: 'error', message: e instanceof Error ? e.message : String(e) })
+    } finally {
+      saving.current = false
     }
   }
 
   return (
     <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
       <div className="flex flex-col gap-3">
+        {onDeleted && <p className="text-xs font-semibold text-neutral-500">{label}</p>}
         <TagInput
-          value={foods}
-          onChange={(v) => {
-            setFoods(v)
-            touch()
-          }}
+          value={draft.foods}
+          onChange={(foods) => change({ foods })}
           suggestions={foodSuggestions}
           prefix=""
           itemLabel="음식"
@@ -92,7 +157,7 @@ export function MealCard({
           <p className="mb-1.5 text-xs text-neutral-500">식후 증상</p>
           <div className="flex flex-wrap gap-1.5">
             {SYMPTOMS.map((s) => {
-              const on = symptoms.includes(s.key)
+              const on = draft.symptoms.includes(s.key)
               return (
                 <button
                   key={s.key}
@@ -113,7 +178,7 @@ export function MealCard({
           </div>
         </div>
 
-        {symptoms.length > 0 && (
+        {draft.symptoms.length > 0 && (
           <div>
             <p className="mb-1.5 text-xs text-neutral-500">정도</p>
             <div className="flex gap-1.5" role="radiogroup" aria-label="증상 정도">
@@ -122,16 +187,13 @@ export function MealCard({
                   key={n}
                   type="button"
                   role="radio"
-                  aria-checked={severity === n}
+                  aria-checked={draft.severity === n}
                   className={`w-12 rounded-lg border py-1 text-sm ${
-                    severity === n
+                    draft.severity === n
                       ? 'border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900'
                       : 'border-neutral-300 dark:border-neutral-700'
                   }`}
-                  onClick={() => {
-                    setSeverity(severity === n ? null : n)
-                    touch()
-                  }}
+                  onClick={() => change({ severity: draft.severity === n ? null : n })}
                 >
                   {SEVERITY_LABEL[n]}
                 </button>
@@ -144,28 +206,29 @@ export function MealCard({
           rows={2}
           className={`${fieldClass} resize-y text-sm`}
           placeholder="메모 (예: 먹고 2시간 뒤 복통)"
-          value={note}
-          onChange={(e) => {
-            setNote(e.target.value)
-            touch()
-          }}
+          value={draft.note}
+          onChange={(e) => change({ note: e.target.value }, NOTE_DELAY)}
+          onBlur={() => timer.current !== undefined && void flush()}
         />
 
-        <div className="flex items-center gap-3">
-          <button type="button" className={secondaryClass} disabled={!dirty || status.pending} onClick={() => void save()}>
-            {status.pending ? '저장 중…' : `${label} 저장`}
-          </button>
-          {onCancel && (
-            <button type="button" className="text-sm text-neutral-500" disabled={status.pending} onClick={onCancel}>
-              취소
-            </button>
+        <div className="flex min-h-5 items-center gap-3 text-xs">
+          {status.state === 'saving' && <span className="text-neutral-400">저장 중…</span>}
+          {status.state === 'saved' && <span className="text-neutral-400">{id ? '저장됨' : '비워서 기록을 지웠습니다'}</span>}
+          {status.state === 'error' && (
+            <>
+              <span className="text-red-600 dark:text-red-400">저장 실패: {status.message}</span>
+              <button type="button" className="underline" onClick={() => void flush()}>
+                다시 시도
+              </button>
+            </>
           )}
-          {status.message && (
-            <span className={`text-xs ${status.error ? 'text-red-600 dark:text-red-400' : 'text-neutral-500'}`}>{status.message}</span>
-          )}
-          {dirty && !status.pending && <span className="text-xs text-neutral-400">저장 안 됨</span>}
-          {id && (
-            <button type="button" className="ml-auto text-xs text-red-600 disabled:opacity-50 dark:text-red-400" disabled={status.pending} onClick={() => void remove()}>
+          {(id || onDeleted) && (
+            <button
+              type="button"
+              className="ml-auto text-red-600 disabled:opacity-50 dark:text-red-400"
+              disabled={status.state === 'saving'}
+              onClick={() => void remove()}
+            >
               삭제
             </button>
           )}
