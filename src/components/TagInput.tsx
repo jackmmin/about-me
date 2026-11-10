@@ -39,6 +39,12 @@ export function TagInput({
     setActive(-1)
   }
 
+  // 목록에서 고르면 추가하고 목록은 접는다. 다시 입력하면 다시 열린다.
+  function pick(s: string) {
+    add(s)
+    setOpen(false)
+  }
+
   return (
     <div>
       {value.length > 0 && (
@@ -89,7 +95,8 @@ export function TagInput({
               setActive((i) => (i <= 0 ? matches.length - 1 : i - 1))
             } else if (e.key === 'Enter') {
               e.preventDefault()
-              add(showList && active >= 0 ? matches[active] : text)
+              if (showList && active >= 0) pick(matches[active])
+              else add(text)
             } else if (e.key === 'Escape') {
               setOpen(false)
             }
@@ -113,7 +120,7 @@ export function TagInput({
                 className={`cursor-pointer px-3 py-2 ${i === active ? 'bg-neutral-100 dark:bg-neutral-800' : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/60'}`}
                 // 누르는 순간 입력 칸 포커스가 빠지면 키패드가 내려가고 목록이 닫히므로 막는다
                 onPointerDown={(e) => e.preventDefault()}
-                onClick={() => add(s)}
+                onClick={() => pick(s)}
               >
                 {s}
               </li>
