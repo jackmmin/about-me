@@ -25,6 +25,7 @@ export function PassagePicker({ value, onChange }: { value: Passage[]; onChange:
   }
 
   function remove(index: number) {
+    if (!confirm('이 말씀을 삭제할까요?')) return
     onChange(value.filter((_, i) => i !== index))
     setEditing(null)
   }

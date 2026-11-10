@@ -111,6 +111,7 @@ export function MealCard({
   }
 
   async function remove() {
+    if (!confirm(`이 ${label} 기록을 삭제할까요?`)) return
     // 아직 저장 안 된 간식 카드는 그냥 닫는다
     if (!id) {
       window.clearTimeout(timer.current)
@@ -118,7 +119,6 @@ export function MealCard({
       onDeleted?.()
       return
     }
-    if (!confirm(`이 ${label} 기록을 삭제할까요?`)) return
     window.clearTimeout(timer.current)
     timer.current = undefined
     saving.current = true

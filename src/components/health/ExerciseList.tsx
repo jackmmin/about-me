@@ -59,7 +59,7 @@ export function ExerciseList({
                 type="button"
                 className="ml-auto text-xs text-red-600 disabled:opacity-50"
                 disabled={pending}
-                onClick={() => void run(() => deleteExercise(ex.id))}
+                onClick={() => confirm(`${ex.kind} 운동 기록을 삭제할까요?`) && void run(() => deleteExercise(ex.id))}
               >
                 삭제
               </button>

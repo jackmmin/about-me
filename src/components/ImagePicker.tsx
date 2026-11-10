@@ -112,7 +112,7 @@ export function ImagePicker({
                 >
                   {isCover ? '★ 대표 사진' : '☆ 대표로'}
                 </button>
-                <button type="button" className="ml-auto px-2 py-1 text-red-600" onClick={() => update(i, null)}>
+                <button type="button" className="ml-auto px-2 py-1 text-red-600" onClick={() => confirm('이 사진을 삭제할까요?') && update(i, null)}>
                   삭제
                 </button>
               </div>
